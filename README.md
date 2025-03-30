@@ -15,7 +15,7 @@ Add a symlink to icloud by navigating to the desired directory and doing the fol
 command, say you want to do a symlink to a 'notes' folder inside iCloud
 
 ```
-ln -s ~/Library/Mobile Documents/com~apple~CloudDocs/notes
+ln -s ~/Library/Mobile Documents/com~apple~CloudDocs/notes ./notes
 ```
 
 'username' would be local to your machine
