@@ -1,19 +1,12 @@
+# nvm configuration
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-
-# My aliases
-alias %=' '
-alias l="ls -alh"
-alias vim="nvim"
-alias lg="lazygit"
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
+[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvmc" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvmc"  # This loads nvm bash_completion
 
 # Set command history file
 HISTFILE=~/.history
 
-##########
-# Prompt #
-##########
+# Prompt configuration
 # Allow command coloring
 export CLICOLOR=1
 # The coloring is set based on the ASCII color modes, consult the following:
@@ -21,10 +14,16 @@ export CLICOLOR=1
 # --> zshzle, CHARACTER HIGHLIGHTING
 # Grabbed this from oh-my-zsh setup
 autoload -U colors && colors
-PS1="%F{214}%(2L.🫧.🦄) %n@%F{71}%m %f%f%F{133}%~%(?..💔) %# %f"
+PS1="%F{214}%(2L.🫧.🦄) %n@%F{71}%m %f%f%F{133}%~ %(?..💔) %# %f"
 
 # Add LaTeX to path
 export PATH=/Library/TeX/texbin:$PATH
+
+# aliases
+alias %=' '
+alias l="ls -alh"
+alias vim="nvim"
+alias lg="lazygit"
 
 # Add python aliases
 alias pip="pip3"
@@ -33,6 +32,6 @@ alias python="python3"
 # Git aliases
 alias g="git"
 
-# clangd aliases
+# clang aliases
 alias clang++="clang++ -std=c++20"
 
