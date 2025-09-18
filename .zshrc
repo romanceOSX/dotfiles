@@ -27,11 +27,18 @@ alias lg="lazygit"
 
 # Add python aliases
 alias pip="pip3"
-alias python="python3"
+alias python="/opt/homebrew/bin/python3"
 
 # Git aliases
 alias g="git"
 
 # clang aliases
 alias clang++="clang++ -std=c++20"
+
+# rust
+. "$HOME/.cargo/env"            # For sh/bash/zsh/ash/dash/pdksh
+#source "$HOME/.cargo/env.fish"  # For fish
+#source "$HOME/.cargo/env.nu"    # For nushell
+
+export COLORTERM=truecolor
 
