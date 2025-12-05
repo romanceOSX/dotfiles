@@ -1,2 +1,8 @@
 CompileFlags:
+  # generic config
+
+If:
+  Language: C++
+CompileFlags:
   Add: [-std=c++23]
+

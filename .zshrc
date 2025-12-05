@@ -42,3 +42,6 @@ alias clang++="clang++ -std=c++20"
 
 export COLORTERM=truecolor
 
+# local binaries
+export PATH=~/.local/bin:$PATH
+
