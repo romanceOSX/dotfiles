@@ -28,3 +28,7 @@ use-cases
     The default window picker is tedious to look at, maybe an fzf picker would work better,
     are there community-known options out there or better solutions to this problem?
 
+    // Current pane selection
+    When working in high-resolution windows, it is hard to see the current selected pane,
+    look for the best approaches (aesthetically speaking) for showing the current selected pane
+
