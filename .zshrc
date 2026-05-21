@@ -45,3 +45,5 @@ export COLORTERM=truecolor
 # local binaries
 export PATH=~/.local/bin:$PATH
 
+# diff
+alias diff="diff -u"
