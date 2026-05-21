@@ -1,0 +1,30 @@
+--> https://raine.dev/blog/my-tmux-setup/
+
+terminology
+    sessions
+        windows
+            panes
+
+    a session can be thought of as a 'project'
+    windows are 'tabs' within a session
+    panes are splits of a window
+
+todo's
+    - ai multi-agent integration, multiple agents working on the same project
+      on the same directory through the use of git work-trees and workmux?
+
+use-cases
+    // Commonly used utilities
+    I would like an easy way of opening commonly used tools in new windows/panes
+    Normally I open a codebase in one window, a shell in another, lazygit in other
+    and claude code in another, is there a good workflow for achieving this, say
+    through a fzf picker or some community-known workflow or solution?
+
+    // Enhanced session picker
+    The default session picker is tedious to look at, maybe an fzf picker would work better,
+    are there community-known options out there or better solutions to this problem?
+    
+    // Enhanced window picker
+    The default window picker is tedious to look at, maybe an fzf picker would work better,
+    are there community-known options out there or better solutions to this problem?
+
