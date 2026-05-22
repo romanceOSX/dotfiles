@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+
+if [ "$#" -eq 1 ]; then
+    selected=$1
+else
+    selected=$(find ~/git ~ -mindepth 1 -maxdepth 1 -type d 2>/dev/null | fzf)
+fi
+
+if [ -z "$selected" ]; then
+    exit 0
+fi
+
+selected_name=$(basename "$selected" | tr . _)
+tmux_running=$(pgrep tmux)
+
+if [ -z "$TMUX" ] && [ -z "$tmux_running" ]; then
+    tmux new-session -s "$selected_name" -c "$selected" -n "editor"
+    tmux send-keys -t "$selected_name:editor" "nvim" Enter
+    tmux new-window -t "$selected_name" -c "$selected" -n "shell"
+    tmux select-window -t "$selected_name:editor"
+    tmux attach-session -t "$selected_name"
+    exit 0
+fi
+
+if ! tmux has-session -t="$selected_name" 2>/dev/null; then
+    tmux new-session -ds "$selected_name" -c "$selected" -n "editor"
+    tmux send-keys -t "$selected_name:editor" "nvim" Enter
+    tmux new-window -t "$selected_name" -c "$selected" -n "shell"
+    tmux select-window -t "$selected_name:editor"
+fi
+
+tmux switch-client -t "$selected_name:editor"

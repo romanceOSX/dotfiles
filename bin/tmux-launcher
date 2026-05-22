@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+
+current_path=$(tmux display-message -p '#{pane_current_path}')
+
+choice=$(printf 'editor\nshell\nlazygit\nclaude\n' | fzf --prompt="open > " --height=~50%)
+
+[ -z "$choice" ] && exit 0
+
+case "$choice" in
+    editor)  cmd="nvim" ;;
+    shell)   cmd="" ;;
+    lazygit) cmd="lazygit" ;;
+    claude)  cmd="claude" ;;
+esac
+
+window=$(tmux new-window -n "$choice" -c "$current_path" -P -F "#{window_id}")
+[ -n "$cmd" ] && tmux send-keys -t "$window" "$cmd" Enter
