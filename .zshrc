@@ -47,3 +47,17 @@ export PATH=~/.local/bin:$PATH
 
 # diff
 alias diff="diff -u"
+
+# vim mode
+bindkey -v
+bindkey '^P' up-line-or-history   # Ctrl+P → previous history
+bindkey '^N' down-line-or-history  # Ctrl+N → next history
+
+# yazi
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	command yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd < "$tmp"
+	[ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
+	command rm -f -- "$tmp"
+}
