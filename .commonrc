@@ -1,0 +1,83 @@
+# =============================================================================
+# Shared shell configuration (bash & zsh compatible)
+# Source this from .bashrc and .zshrc
+# =============================================================================
+
+# History
+HISTFILE=~/.history
+HISTSIZE=100000
+if [ -n "$ZSH_VERSION" ]; then
+    SAVEHIST=100000
+    setopt SHARE_HISTORY
+    setopt HIST_IGNORE_DUPS
+    setopt HIST_IGNORE_ALL_DUPS
+elif [ -n "$BASH_VERSION" ]; then
+    HISTFILESIZE=100000
+    HISTCONTROL=ignoredups:erasedups
+    shopt -s histappend
+    PROMPT_COMMAND="history -a; history -c; history -r${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+fi
+
+# Environment
+export CLICOLOR=1
+export COLORTERM=truecolor
+export PATH=/Library/TeX/texbin:$PATH
+export PATH=~/.local/bin:$PATH
+
+# nvm
+export NVM_DIR="$HOME/.nvm"
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
+[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvmc" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvmc"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+# rust
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
+# aliases
+alias %=' '
+alias l="ls -alh"
+alias vim="nvim"
+alias lg="lazygit"
+alias g="git"
+alias diff="diff -u"
+alias pip="pip3"
+alias python="python3"
+alias clang++="clang++ -std=c++20"
+
+# yazi
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	command yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd < "$tmp"
+	[ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
+	command rm -f -- "$tmp"
+}
+
+# Vi mode with emacs keybindings in insert mode
+set -o vi
+if [ -n "$ZSH_VERSION" ]; then
+    bindkey -M viins '^A' beginning-of-line
+    bindkey -M viins '^E' end-of-line
+    bindkey -M viins '^K' kill-line
+    bindkey -M viins '^U' backward-kill-line
+    bindkey -M viins '^W' backward-kill-word
+    bindkey -M viins '^L' clear-screen
+    bindkey -M viins '^P' up-line-or-history
+    bindkey -M viins '^N' down-line-or-history
+    bindkey -M viins '^R' history-incremental-search-backward
+    bindkey -M viins '^B' backward-char
+    bindkey -M viins '^F' forward-char
+elif [ -n "$BASH_VERSION" ]; then
+    bind -m vi-insert '"\C-a":beginning-of-line'
+    bind -m vi-insert '"\C-e":end-of-line'
+    bind -m vi-insert '"\C-k":kill-line'
+    bind -m vi-insert '"\C-u":unix-line-discard'
+    bind -m vi-insert '"\C-w":unix-word-rubout'
+    bind -m vi-insert '"\C-l":clear-screen'
+    bind -m vi-insert '"\C-p":previous-history'
+    bind -m vi-insert '"\C-n":next-history'
+    bind -m vi-insert '"\C-r":reverse-search-history'
+    bind -m vi-insert '"\C-b":backward-char'
+    bind -m vi-insert '"\C-f":forward-char'
+fi
