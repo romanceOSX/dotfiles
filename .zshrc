@@ -15,3 +15,7 @@ function vi-yank-clip {
 zle -N vi-yank-clip
 bindkey -M vicmd 'y' vi-yank-clip
 
+autoload -Uz edit-command-line
+zle -N edit-command-line
+bindkey '^X^E' edit-command-line
+
