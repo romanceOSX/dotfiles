@@ -1,15 +1,8 @@
 #!/usr/bin/env sh
+set -e
+
+command -v stow >/dev/null 2>&1 || { echo "stow is required: brew install stow"; exit 1; }
 
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
-
-link() {
-    src="$1"
-    dst="$2"
-    mkdir -p "$(dirname "$dst")"
-    ln -sf "$src" "$dst"
-    echo "linked $dst"
-}
-
-link "$DOTFILES/.tmux.conf"              "$HOME/.tmux.conf"
-link "$DOTFILES/bin/tmux-sessionizer"    "$HOME/.local/bin/tmux-sessionizer"
-link "$DOTFILES/bin/tmux-launcher"       "$HOME/.local/bin/tmux-launcher"
+stow --target="$HOME" --dir="$DOTFILES" .
+echo "dotfiles linked"

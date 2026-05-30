@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+user=$(id -un)
+host=$(hostname -s 2>/dev/null || hostname)
+cwd=$(pwd | sed "s|^$HOME|~|")
+text="$user@$host $cwd"
+
+printf '%s' "$text" | awk '
+{
+    n = length($0)
+    freq = 2 * 3.14159265 / (n > 1 ? n : 1) * 0.6
+    for (i = 1; i <= n; i++) {
+        r = int(sin(freq * (i-1) + 0) * 55 + 200)
+        g = int(sin(freq * (i-1) + 2) * 55 + 200)
+        b = int(sin(freq * (i-1) + 4) * 55 + 200)
+        printf "\033[38;2;%d;%d;%dm%s", r, g, b, substr($0, i, 1)
+    }
+    printf "\033[0m"
+}'

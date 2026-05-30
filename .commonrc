@@ -81,3 +81,10 @@ elif [ -n "$BASH_VERSION" ]; then
     bind -m vi-insert '"\C-b":backward-char'
     bind -m vi-insert '"\C-f":forward-char'
 fi
+
+# fzf
+[ -n "$ZSH_VERSION" ] && [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+[ -n "$BASH_VERSION" ] && [ -f ~/.fzf.bash ] && source ~/.fzf.bash
+
+# Prompt
+command -v starship >/dev/null 2>&1 && eval "$(starship init ${SHELL##*/})"
