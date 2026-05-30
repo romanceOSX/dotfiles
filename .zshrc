@@ -1,6 +1,9 @@
 # Source shared config
 source "${${(%):-%x}:A:h}/.commonrc"
 
+PROMPT_SP=""
+unsetopt PROMPT_CR
+
 # Makes the zsh's vi-mode yank clipboard-accesible
 function vi-yank-clip {
     zle vi-yank
