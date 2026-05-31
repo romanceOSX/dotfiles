@@ -5,7 +5,6 @@ add_newline = false
 format = """
 ${custom.rainbow}\
 $cmd_duration\
-$status\
 $character"""
 
 [custom.rainbow]
@@ -17,13 +16,6 @@ format = "$output "
 [cmd_duration]
 format = "[$duration]($style) "
 style = "blue"
-
-[status]
-disabled = false
-format = "[$symbol]($style) "
-symbol = "💔"
-success_symbol = ""
-style = ""
 
 [character]
 success_symbol = "[❯](#c4a0e8)"
