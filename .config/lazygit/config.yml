@@ -19,7 +19,7 @@ gui:
       - '#C58EA7'
       - bold
     inactiveBorderColor:
-      - '#2F2B30'   # bg-alt — same as yazi's inter-pane border
+      - '#7E7480'   # grey — muted but clearly visible against the bg
     searchingActiveBorderColor:
       - '#F6CF94'   # peach — matches yazi's find_keyword highlight
       - bold
