@@ -1,0 +1,185 @@
+# Yazi theme — pastel rainbow on charcoal, matched to LS_COLORS / starship / tmux.
+#
+# Pastel-rainbow palette (sampled around the hue wheel, soft/desaturated):
+#   red     #FFB3B3   coral   #FFC2A8   peach   #F6CF94   gold    #F2E6A0
+#   lime    #D6F0A0   green   #B4FA9E   mint    #94F7E4   cyan    #A0E8E0
+#   sky     #A0D8EF   blue    #9EC4FE   periw   #B3C2FF   lavndr  #C4B3FF
+#   purple  #CF94F7   orchid  #E0A0E0   mauve   #C58EA7   pink    #FA9EC4
+# Neutrals:
+#   bg #191719   bg-alt #2F2B30   bg-hi #3A363B   grey #7E7480
+
+[mgr]
+cwd = { fg = "#94F7E4" }
+
+# cursor / hovered row: dim bg highlight (not reversed — reversing the entry's
+# bright fg into a background was too glaring). Text keeps its own colour.
+hovered         = { bg = "#3A363B" }
+preview_hovered = { underline = true }
+
+# in-file find
+find_keyword  = { fg = "#F6CF94", italic = true }
+find_position = { fg = "#7E7480", bg = "reset", italic = true }
+
+# yank / selection markers (the bar on the left edge)
+marker_copied   = { fg = "#F6CF94", bg = "#F6CF94" }
+marker_cut      = { fg = "#FFB3B3", bg = "#FFB3B3" }
+marker_marked   = { fg = "#94F7E4", bg = "#94F7E4" }
+marker_selected = { fg = "#A6CE94", bg = "#A6CE94" }
+
+# counts shown in the status/tab
+count_copied   = { fg = "#191719", bg = "#F6CF94" }
+count_cut      = { fg = "#191719", bg = "#FFB3B3" }
+count_selected = { fg = "#191719", bg = "#A6CE94" }
+
+# tabs
+tab_active   = { fg = "#191719", bg = "#C58EA7", bold = true }
+tab_inactive = { fg = "#7E7480", bg = "#2F2B30" }
+tab_width    = 1
+
+# borders between panes
+border_symbol = "│"
+border_style  = { fg = "#2F2B30" }
+
+[mode]
+normal_main = { fg = "#191719", bg = "#C58EA7", bold = true }
+normal_alt  = { fg = "#C58EA7", bg = "#2F2B30" }
+select_main = { fg = "#191719", bg = "#A6CE94", bold = true }
+select_alt  = { fg = "#A6CE94", bg = "#2F2B30" }
+unset_main  = { fg = "#191719", bg = "#FA9EC4", bold = true }
+unset_alt   = { fg = "#FA9EC4", bg = "#2F2B30" }
+
+[status]
+separator_open  = ""
+separator_close = ""
+separator_style = { fg = "#2F2B30", bg = "#2F2B30" }
+
+# permission bits
+perm_type  = { fg = "#9EC4FE" }
+perm_read  = { fg = "#F6CF94" }
+perm_write = { fg = "#FFB3B3" }
+perm_exec  = { fg = "#B4FA9E" }
+perm_sep   = { fg = "#7E7480" }
+
+# task progress in the status line
+progress_label  = { fg = "#FFFFFF", bold = true }
+progress_normal = { fg = "#C58EA7", bg = "#2F2B30" }
+progress_error  = { fg = "#FFB3B3", bg = "#2F2B30" }
+
+[input]
+border   = { fg = "#C58EA7" }
+title    = {}
+value    = {}
+selected = { bg = "#2F2B30" }
+
+[pick]
+border   = { fg = "#C58EA7" }
+active   = { fg = "#CF94F7", bold = true }
+inactive = { fg = "#7E7480" }
+
+[confirm]
+border     = { fg = "#C58EA7" }
+title      = { fg = "#C58EA7" }
+content    = {}
+list       = {}
+btn_yes    = { fg = "#191719", bg = "#B4FA9E", bold = true }
+btn_no     = { fg = "#191719", bg = "#FFB3B3" }
+btn_labels = [ "  [Y]es  ", "  (N)o  " ]
+
+[tasks]
+border  = { fg = "#C58EA7" }
+title   = {}
+hovered = { fg = "#CF94F7", underline = true }
+
+[which]
+mask            = { bg = "#2F2B30" }
+cand            = { fg = "#94F7E4" }
+rest            = { fg = "#7E7480" }
+desc            = { fg = "#C58EA7" }
+separator       = "  "
+separator_style = { fg = "#7E7480" }
+
+[help]
+on      = { fg = "#B4FA9E" }
+run     = { fg = "#94F7E4" }
+desc    = { fg = "#7E7480" }
+hovered = { reversed = true, bold = true }
+footer  = { fg = "#7E7480", bg = "#2F2B30" }
+
+[notify]
+title_info  = { fg = "#B4FA9E" }
+title_warn  = { fg = "#F6CF94" }
+title_error = { fg = "#FFB3B3" }
+
+# File-type colors — kept in lockstep with LS_COLORS in .commonrc
+[filetype]
+rules = [
+  # Every rule needs a `url` or `mime`; `is` is an extra condition on `url`.
+  # First match wins, so order = specific type conditions, then extensions by
+  # hue (walking the rainbow), then the directory + fallback catch-alls.
+
+  # ── filesystem specials (highest priority, by `is`) ───────────────────────
+  { url = "*", is = "orphan", fg = "#FFB3B3", bold = true },  # broken symlink
+  { url = "*", is = "link",   fg = "#94F7E4", bold = true },
+  { url = "*", is = "exec",   fg = "#B4FA9E", bold = true },
+  { url = "*", is = "sock",   fg = "#CF94F7", bold = true },
+  { url = "*", is = "fifo",   fg = "#F6CF94" },
+  { url = "*", is = "block",  fg = "#9EC4FE" },
+  { url = "*", is = "char",   fg = "#CF94F7" },
+
+  # ── RED: archives / compressed ────────────────────────────────────────────
+  { url = "*.{zip,tar,gz,tgz,bz2,xz,zst,7z,rar,lz4,lzma,cab,iso,dmg}", fg = "#FFB3B3" },
+
+  # ── CORAL: binaries / packages / installers ───────────────────────────────
+  { url = "*.{exe,app,appimage,deb,rpm,pkg,msi,bin,o,a,so,dll,dylib}", fg = "#FFC2A8" },
+
+  # ── PEACH: images ─────────────────────────────────────────────────────────
+  { mime = "image/*", fg = "#F6CF94" },
+
+  # ── GOLD: rich documents ──────────────────────────────────────────────────
+  { url = "*.{pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods,epub,mobi}", fg = "#F2E6A0" },
+
+  # ── LIME: data / structured config ────────────────────────────────────────
+  { url = "*.{json,jsonc,json5,yaml,yml,toml,xml,csv,tsv,sql,parquet}", fg = "#D6F0A0" },
+
+  # ── GREEN: shell & scripting ──────────────────────────────────────────────
+  { url = "*.{sh,bash,zsh,fish,ps1,bat,cmd,nu,awk,sed}", fg = "#B4FA9E" },
+  { url = "{.zshrc,.bashrc,.commonrc,.profile,.zprofile,.bash_profile}", fg = "#B4FA9E" },
+
+  # ── MINT: web markup & styles ─────────────────────────────────────────────
+  { url = "*.{html,htm,css,scss,sass,less,vue,svelte,astro}", fg = "#94F7E4" },
+
+  # ── CYAN: JS / TS ─────────────────────────────────────────────────────────
+  { url = "*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}", fg = "#A0E8E0" },
+
+  # ── SKY: systems languages ────────────────────────────────────────────────
+  { url = "*.{c,h,cc,cpp,cxx,hpp,hh,rs,go,zig,nim,v}", fg = "#A0D8EF" },
+
+  # ── BLUE: scripting languages ─────────────────────────────────────────────
+  { url = "*.{py,pyi,ipynb,rb,erb,pl,pm,lua,php,r,jl}", fg = "#9EC4FE" },
+
+  # ── PERIWINKLE: JVM / functional / other ──────────────────────────────────
+  { url = "*.{java,kt,kts,scala,clj,cljs,hs,ml,ex,exs,erl,fs,elm,dart,swift}", fg = "#B3C2FF" },
+
+  # ── LAVENDER: video ───────────────────────────────────────────────────────
+  { mime = "video/*", fg = "#C4B3FF" },
+
+  # ── PURPLE: audio ─────────────────────────────────────────────────────────
+  { mime = "audio/*", fg = "#CF94F7" },
+
+  # ── ORCHID: prose / docs / markup text ────────────────────────────────────
+  { url = "*.{md,markdown,rst,org,tex,txt,adoc,typ}", fg = "#E0A0E0" },
+
+  # ── MAUVE: build / project / tooling config ───────────────────────────────
+  { url = "*.{lock,mk,cmake,gradle,dockerfile,tf,tfvars}", fg = "#C58EA7" },
+  { url = "{Makefile,Dockerfile,Justfile,Rakefile,CMakeLists.txt,*.config.*}", fg = "#C58EA7" },
+
+  # ── PINK: dotfiles / ignore / git / misc plain config ─────────────────────
+  { url = "*.{ini,conf,cfg,env,gitignore,gitattributes,editorconfig}", fg = "#FA9EC4" },
+  { url = ".*", fg = "#FA9EC4" },                  # leading-dot files
+
+  # ── directories + everything else ─────────────────────────────────────────
+  # Directory names get a per-letter pastel gradient via init.lua; this fg is
+  # only the fallback (e.g. if the plugin fails to load).
+  { url = "*/", fg = "#A6E8B4", bold = true },
+  { url = "*",  fg = "reset" },
+]
