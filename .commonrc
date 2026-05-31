@@ -21,6 +21,32 @@ fi
 # Environment
 export CLICOLOR=1
 export COLORTERM=truecolor
+# Point XDG at ~/.config so tools that default elsewhere on macOS (e.g. lazygit,
+# which otherwise reads ~/Library/Application Support) pick up our stowed configs.
+export XDG_CONFIG_HOME="$HOME/.config"
+
+# ls colors — pastel rainbow sampled from the same sine-wave palette as rainbow-prompt
+# r=sin(p+0)*55+200  g=sin(p+2)*55+200  b=sin(p+4)*55+200
+# p=0→lime p=1→orange p=2→pink p=3→purple p=4→blue p=5→teal
+export LSCOLORS="FxGxCxDxFxegedabagacad"
+export LS_COLORS="\
+di=1;38;2;197;142;167:\
+ln=1;38;2;148;247;228:\
+ex=1;38;2;180;250;158:\
+so=1;38;2;207;148;247:\
+pi=38;2;246;207;148:\
+bd=38;2;158;196;254:\
+cd=38;2;207;148;247:\
+su=1;38;2;250;158;196:\
+sg=38;2;250;158;196:\
+tw=1;38;2;246;207;148:\
+ow=38;2;246;207;148"
+# Use GNU ls (brew install coreutils) for truecolor LS_COLORS on macOS
+if command -v gls >/dev/null 2>&1; then
+    alias ls="gls --color=auto"
+elif [[ "$(uname)" != "Darwin" ]]; then
+    alias ls="ls --color=auto"
+fi
 export PATH=/Library/TeX/texbin:$PATH
 export PATH=~/.local/bin:$PATH
 
@@ -86,9 +112,21 @@ elif [ -n "$BASH_VERSION" ]; then
     bind -m vi-insert '"\C-f":forward-char'
 fi
 
+# completion system (zsh) — needed by fzf's **-completion and by fzf-tab
+[ -n "$ZSH_VERSION" ] && { autoload -Uz compinit && compinit; }
+
 # fzf
 [ -n "$ZSH_VERSION" ] && [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 [ -n "$BASH_VERSION" ] && [ -f ~/.fzf.bash ] && source ~/.fzf.bash
+
+# fzf-tab — fuzzy Tab completion (zsh only; must load after compinit)
+if [ -n "$ZSH_VERSION" ]; then
+    zstyle ':completion:*' menu no            # required, else zsh's menu blocks fzf-tab
+    zstyle ':fzf-tab:*' fzf-flags --bind=tab:accept  # Tab accepts the highlighted match
+    _fzf_tab="$HOME/.config/zsh/plugins/fzf-tab/fzf-tab.plugin.zsh"
+    [ -f "$_fzf_tab" ] && source "$_fzf_tab"
+    unset _fzf_tab
+fi
 
 # Prompt
 command -v starship >/dev/null 2>&1 && eval "$(starship init ${SHELL##*/})"
