@@ -1,0 +1,63 @@
+# Lazygit — pastel rainbow on charcoal, matched to yazi/theme.toml + starship.
+#
+# Pastel-rainbow palette (shared with Yazi / LS_COLORS):
+#   red    #FFB3B3   coral  #FFC2A8   peach  #F6CF94   gold   #F2E6A0
+#   lime   #D6F0A0   green  #B4FA9E   mint   #94F7E4   cyan   #A0E8E0
+#   sky    #A0D8EF   blue   #9EC4FE   periw  #B3C2FF   lavndr #C4B3FF
+#   purple #CF94F7   orchid #E0A0E0   mauve  #C58EA7   pink   #FA9EC4
+# Neutrals:
+#   bg #191719   bg-alt #2F2B30   bg-hi #3A363B   grey #7E7480
+#
+# mauve (#C58EA7) is yazi's accent border/mode colour — reused here as the
+# active accent so the two TUIs read as one theme.
+
+gui:
+  nerdFontsVersion: '3'
+  theme:
+    # active pane border = mauve accent (matches yazi borders / mode chips)
+    activeBorderColor:
+      - '#C58EA7'
+      - bold
+    inactiveBorderColor:
+      - '#2F2B30'   # bg-alt — same as yazi's inter-pane border
+    searchingActiveBorderColor:
+      - '#F6CF94'   # peach — matches yazi's find_keyword highlight
+      - bold
+
+    # accents
+    optionsTextColor:
+      - '#9EC4FE'   # blue (starship cmd_duration is blue too)
+    defaultFgColor:
+      - default
+
+    # selection: dim bg highlight, not reverse (same call yazi's theme makes)
+    selectedLineBgColor:
+      - '#3A363B'   # bg-hi
+    inactiveViewSelectedLineBgColor:
+      - '#2F2B30'   # bg-alt
+
+    # cherry-picked commits = purple chip (yazi sock/audio purple)
+    cherryPickedCommitFgColor:
+      - '#191719'   # bg
+    cherryPickedCommitBgColor:
+      - '#CF94F7'   # purple
+
+    # marked base commit = peach chip (mirrors yazi marker_copied)
+    markedBaseCommitFgColor:
+      - '#191719'   # bg
+    markedBaseCommitBgColor:
+      - '#F6CF94'   # peach
+
+    # unstaged changes kept loud red for safety (yazi marker_cut / perm_write)
+    unstagedChangesColor:
+      - '#FFB3B3'   # red
+
+  # commit author initials cycle the cool end of the rainbow
+  authorColors:
+    '*': '#94E7E4'   # mint/cyan blend
+
+  # branch names — walk the warm→cool hues
+  branchColors:
+    master: '#FA9EC4'   # pink
+    main:   '#FA9EC4'   # pink
+    develop: '#B4FA9E'  # green
