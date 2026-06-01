@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+# tmux-rainbow: colour a string letter-by-letter with the muted pastel sine-wave
+# gradient (same palette as the yazi dir gradient: CENTER 180 / AMP 40), emitting
+# tmux #[fg=#rrggbb] directives. Reads the text from $1, or stdin if no arg.
+#
+# Used inside nova segment definitions, e.g.
+#   set -g @nova-segment-session "#(tmux-rainbow '#{session_name}')"
+# tmux expands #{...}/strftime before running this, and honours the #[fg] codes
+# in the output. A literal '#' in the text is escaped to '##' so tmux doesn't
+# treat it as a format directive.
+
+if [ "$#" -gt 0 ]; then
+    text="$1"
+else
+    text="$(cat)"
+fi
+
+printf '%s' "$text" | awk '
+{
+    n = length($0)
+    sweep = 0.6
+    freq = 2 * 3.14159265 / (n > 1 ? n : 1) * sweep
+    center = 180; amp = 40
+    for (i = 1; i <= n; i++) {
+        r = int(sin(freq * (i-1) + 0) * amp + center)
+        g = int(sin(freq * (i-1) + 2) * amp + center)
+        b = int(sin(freq * (i-1) + 4) * amp + center)
+        c = substr($0, i, 1)
+        if (c == "#") c = "##"
+        printf "#[fg=#%02x%02x%02x]%s", r, g, b, c
+    }
+}'
