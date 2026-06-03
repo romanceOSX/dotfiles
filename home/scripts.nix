@@ -1,0 +1,25 @@
+{ config, ... }:
+{
+  # The shell utilities from .local/bin, copied verbatim into ~/.local/bin with
+  # the executable bit set. starship (rainbow-prompt) and tmux (tmux-rainbow,
+  # tmux-sessionizer, tmux-launcher) call these by name; ~/.local/bin is put on
+  # PATH via home.sessionPath in shell.nix.
+  home.file = {
+    ".local/bin/rainbow-prompt" = {
+      source = ../.local/bin/rainbow-prompt;
+      executable = true;
+    };
+    ".local/bin/tmux-rainbow" = {
+      source = ../.local/bin/tmux-rainbow;
+      executable = true;
+    };
+    ".local/bin/tmux-sessionizer" = {
+      source = ../.local/bin/tmux-sessionizer;
+      executable = true;
+    };
+    ".local/bin/tmux-launcher" = {
+      source = ../.local/bin/tmux-launcher;
+      executable = true;
+    };
+  };
+}
