@@ -30,6 +30,7 @@
       stow # keep the non-nix stow install path working too
       fastfetch
       hyfetch
+      nmap
     ]
     ++ lib.optionals stdenv.isLinux [
       # macOS ships these; on Linux pull them in for the scripts/clipboard yank.

@@ -1,5 +1,5 @@
 {
-  description = "romance's reproducible environment (Home Manager / native modules)";
+  description = "romance's home-manager";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -43,7 +43,7 @@
       # Activate with:  home-manager switch --flake .#<name>
       homeConfigurations = {
         # current macOS machine (Apple Silicon)
-        "romance@mac" = mkHome {
+        "romance@osx" = mkHome {
           system = "aarch64-darwin";
           username = "romance";
           homeDirectory = "/Users/romance";

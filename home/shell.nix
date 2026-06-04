@@ -39,9 +39,12 @@
     enableCompletion = true; # runs compinit (needed by fzf-tab)
     defaultKeymap = "viins"; # `set -o vi`, start in insert mode
 
-    # If the login shell is system zsh, re-exec into nix's zsh so that
-    # nix-built modules (fzf-tab) load with the matching glibc.
-    profileExtra = ''
+    # LINUX ONLY: if the login shell is system zsh, re-exec into nix's zsh so
+    # nix-built modules (fzf-tab) load against the matching glibc. The guard uses
+    # /proc, which doesn't exist on macOS — so on darwin this whole block is
+    # omitted (otherwise the guard is always true and login shells exec forever).
+    # macOS doesn't need it: system zsh sources HM's ~/.zshrc fine, no glibc.
+    profileExtra = lib.optionalString pkgs.stdenv.isLinux ''
       if [[ "$(realpath /proc/$$/exe 2>/dev/null)" != */nix/store/* ]]; then
         NIX_ZSH="$HOME/.nix-profile/bin/zsh"
         if [[ -x "$NIX_ZSH" ]]; then
