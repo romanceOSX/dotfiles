@@ -43,20 +43,20 @@
       # Activate with:  home-manager switch --flake .#<name>
       homeConfigurations = {
         # current macOS machine (Apple Silicon)
-        "romance@osx" = mkHome {
+        "osx" = mkHome {
           system = "aarch64-darwin";
           username = "romance";
           homeDirectory = "/Users/romance";
         };
 
         # WSL (Ubuntu/Debian under Windows) — uses local.nix identity
-        "romance@wsl" = mkHome {
+        "wsl" = mkHome {
           system = "x86_64-linux";
           inherit (local) username homeDirectory;
         };
 
         # bare-metal / VM Debian — uses local.nix identity
-        "romance@debian" = mkHome {
+        "debian" = mkHome {
           system = "x86_64-linux";
           inherit (local) username homeDirectory;
         };

@@ -52,6 +52,12 @@
     defaultEditor = true;
     viAlias = true;
     vimAlias = true; # provides the `vim` -> nvim alias from .commonrc
+    # Home Manager generates its own init.lua (providers only). Without this it
+    # never sources the repo config, so lazy.nvim never runs and plugins (e.g.
+    # lush) are absent from the runtimepath. Load the real config explicitly.
+    extraLuaConfig = ''
+      require("romance")
+    '';
   };
 
   # ---------------------------------------------------------------------------
