@@ -12,6 +12,13 @@
   outputs =
     { nixpkgs, home-manager, ... }:
     let
+      # Machine-local identity — each host defines local.nix once (gitignored).
+      # Falls back to sensible defaults if missing.
+      local =
+        if builtins.pathExists ./local.nix
+        then import ./local.nix
+        else { username = "romance"; homeDirectory = "/home/romance"; };
+
       # Build a Home Manager configuration for one host.
       #   system        — nix system double (e.g. "x86_64-linux", "aarch64-darwin")
       #   username       — your login name on that machine
@@ -42,18 +49,16 @@
           homeDirectory = "/Users/romance";
         };
 
-        # WSL (Ubuntu/Debian under Windows) — adjust username if different
+        # WSL (Ubuntu/Debian under Windows) — uses local.nix identity
         "romance@wsl" = mkHome {
           system = "x86_64-linux";
-          username = "romance";
-          homeDirectory = "/home/romance";
+          inherit (local) username homeDirectory;
         };
 
-        # bare-metal / VM Debian — adjust username if different
+        # bare-metal / VM Debian — uses local.nix identity
         "romance@debian" = mkHome {
           system = "x86_64-linux";
-          username = "romance";
-          homeDirectory = "/home/romance";
+          inherit (local) username homeDirectory;
         };
       };
     };

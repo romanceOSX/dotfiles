@@ -17,6 +17,8 @@
       clang-tools # provides clangd (matches .clangd)
 
       python3 # for the python/pip aliases
+      python3Packages.tkinter
+      uv # fast Python package and project manager
 
       # --- utilities used by configs & .local/bin scripts ---
       coreutils # GNU ls/etc. — makes `ls --color` + LS_COLORS work everywhere
@@ -26,11 +28,14 @@
       ripgrep
       fd
       stow # keep the non-nix stow install path working too
+      fastfetch
+      hyfetch
     ]
     ++ lib.optionals stdenv.isLinux [
       # macOS ships these; on Linux pull them in for the scripts/clipboard yank.
       xclip
       wl-clipboard
       inetutils # `hostname` for rainbow-prompt
+      xdg-utils # provides xdg-open (aliased to `open` in shell.nix)
     ];
 }

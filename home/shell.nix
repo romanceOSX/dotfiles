@@ -39,6 +39,24 @@
     enableCompletion = true; # runs compinit (needed by fzf-tab)
     defaultKeymap = "viins"; # `set -o vi`, start in insert mode
 
+    # If the login shell is system zsh, re-exec into nix's zsh so that
+    # nix-built modules (fzf-tab) load with the matching glibc.
+    profileExtra = ''
+      if [[ "$(realpath /proc/$$/exe 2>/dev/null)" != */nix/store/* ]]; then
+        NIX_ZSH="$HOME/.nix-profile/bin/zsh"
+        if [[ -x "$NIX_ZSH" ]]; then
+          export SHELL="$NIX_ZSH"
+          exec "$NIX_ZSH" -l
+        fi
+      fi
+    '';
+
+    # Remove broken system completions (e.g. Docker Desktop on WSL when not running)
+    completionInit = ''
+      fpath=( ''${fpath:#/usr/share/zsh/vendor-completions} )
+      autoload -U compinit && compinit
+    '';
+
     history = {
       path = "${config.home.homeDirectory}/.history";
       size = 100000;
@@ -59,6 +77,10 @@
       python = "python3";
       "clang++" = "clang++ -std=c++20";
       # `vim` -> `nvim` is provided by programs.neovim.vimAlias
+      cansniff = "cmd.exe /c cansniff.exe";
+      cmd = "cmd.exe /c";
+    } // lib.optionalAttrs pkgs.stdenv.isLinux {
+      open = "xdg-open"; # macOS has a native `open`
     };
 
     # fzf-tab — fuzzy Tab completion. Sourced after compinit by HM.
@@ -84,7 +106,7 @@
       bindkey -M viins '^L' clear-screen
       bindkey -M viins '^P' up-line-or-history
       bindkey -M viins '^N' down-line-or-history
-      bindkey -M viins '^R' history-incremental-search-backward
+      bindkey -M viins '^R' fzf-history-widget
       bindkey -M viins '^B' backward-char
       bindkey -M viins '^F' forward-char
 
@@ -137,6 +159,6 @@
   programs.starship = {
     enable = true;
     enableZshIntegration = true;
-    settings = builtins.fromTOML (builtins.readFile ../.config/starship.toml);
+    settings = builtins.fromTOML (builtins.readFile ./starship.toml);
   };
 }

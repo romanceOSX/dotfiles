@@ -40,8 +40,8 @@
   programs.yazi = {
     enable = true;
     enableZshIntegration = false; # we define our own `y` wrapper in shell.nix
-    theme = builtins.fromTOML (builtins.readFile ../.config/yazi/theme.toml);
-    initLua = ../.config/yazi/init.lua;
+    theme = builtins.fromTOML (builtins.readFile ./yazi/theme.toml);
+    initLua = ./yazi/init.lua;
   };
 
   # ---------------------------------------------------------------------------

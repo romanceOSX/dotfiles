@@ -4,3 +4,8 @@ TODO.txt
 changes.diff
 \.claude
 docs
+flake\.nix
+flake\.lock
+home
+nix-test
+\.dockerignore

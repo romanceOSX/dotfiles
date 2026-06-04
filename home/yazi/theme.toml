@@ -1,0 +1,342 @@
+[confirm]
+btn_labels = ["  [Y]es  ", "  (N)o  "]
+
+[confirm.border]
+fg = "#C58EA7"
+
+[confirm.btn_no]
+bg = "#FFB3B3"
+fg = "#191719"
+
+[confirm.btn_yes]
+bg = "#B4FA9E"
+bold = true
+fg = "#191719"
+
+[confirm.content]
+
+[confirm.list]
+
+[confirm.title]
+fg = "#C58EA7"
+
+[[filetype.rules]]
+bold = true
+fg = "#FFB3B3"
+is = "orphan"
+url = "*"
+
+[[filetype.rules]]
+bold = true
+fg = "#94F7E4"
+is = "link"
+url = "*"
+
+[[filetype.rules]]
+bold = true
+fg = "#B4FA9E"
+is = "exec"
+url = "*"
+
+[[filetype.rules]]
+bold = true
+fg = "#CF94F7"
+is = "sock"
+url = "*"
+
+[[filetype.rules]]
+fg = "#F6CF94"
+is = "fifo"
+url = "*"
+
+[[filetype.rules]]
+fg = "#9EC4FE"
+is = "block"
+url = "*"
+
+[[filetype.rules]]
+fg = "#CF94F7"
+is = "char"
+url = "*"
+
+[[filetype.rules]]
+fg = "#FFB3B3"
+url = "*.{zip,tar,gz,tgz,bz2,xz,zst,7z,rar,lz4,lzma,cab,iso,dmg}"
+
+[[filetype.rules]]
+fg = "#FFC2A8"
+url = "*.{exe,app,appimage,deb,rpm,pkg,msi,bin,o,a,so,dll,dylib}"
+
+[[filetype.rules]]
+fg = "#F6CF94"
+mime = "image/*"
+
+[[filetype.rules]]
+fg = "#F2E6A0"
+url = "*.{pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods,epub,mobi}"
+
+[[filetype.rules]]
+fg = "#D6F0A0"
+url = "*.{json,jsonc,json5,yaml,yml,toml,xml,csv,tsv,sql,parquet}"
+
+[[filetype.rules]]
+fg = "#B4FA9E"
+url = "*.{sh,bash,zsh,fish,ps1,bat,cmd,nu,awk,sed}"
+
+[[filetype.rules]]
+fg = "#B4FA9E"
+url = "{.zshrc,.bashrc,.commonrc,.profile,.zprofile,.bash_profile}"
+
+[[filetype.rules]]
+fg = "#94F7E4"
+url = "*.{html,htm,css,scss,sass,less,vue,svelte,astro}"
+
+[[filetype.rules]]
+fg = "#A0E8E0"
+url = "*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}"
+
+[[filetype.rules]]
+fg = "#A0D8EF"
+url = "*.{c,h,cc,cpp,cxx,hpp,hh,rs,go,zig,nim,v}"
+
+[[filetype.rules]]
+fg = "#9EC4FE"
+url = "*.{py,pyi,ipynb,rb,erb,pl,pm,lua,php,r,jl}"
+
+[[filetype.rules]]
+fg = "#B3C2FF"
+url = "*.{java,kt,kts,scala,clj,cljs,hs,ml,ex,exs,erl,fs,elm,dart,swift}"
+
+[[filetype.rules]]
+fg = "#C4B3FF"
+mime = "video/*"
+
+[[filetype.rules]]
+fg = "#CF94F7"
+mime = "audio/*"
+
+[[filetype.rules]]
+fg = "#E0A0E0"
+url = "*.{md,markdown,rst,org,tex,txt,adoc,typ}"
+
+[[filetype.rules]]
+fg = "#C58EA7"
+url = "*.{lock,mk,cmake,gradle,dockerfile,tf,tfvars}"
+
+[[filetype.rules]]
+fg = "#C58EA7"
+url = "{Makefile,Dockerfile,Justfile,Rakefile,CMakeLists.txt,*.config.*}"
+
+[[filetype.rules]]
+fg = "#FA9EC4"
+url = "*.{ini,conf,cfg,env,gitignore,gitattributes,editorconfig}"
+
+[[filetype.rules]]
+fg = "#FA9EC4"
+url = ".*"
+
+[[filetype.rules]]
+bold = true
+fg = "#A6E8B4"
+url = "*/"
+
+[[filetype.rules]]
+fg = "reset"
+url = "*"
+
+[help.desc]
+fg = "#7E7480"
+
+[help.footer]
+bg = "#2F2B30"
+fg = "#7E7480"
+
+[help.hovered]
+bold = true
+reversed = true
+
+[help.on]
+fg = "#B4FA9E"
+
+[help.run]
+fg = "#94F7E4"
+
+[input.border]
+fg = "#C58EA7"
+
+[input.selected]
+bg = "#2F2B30"
+
+[input.title]
+
+[input.value]
+
+[mgr]
+border_symbol = "│"
+tab_width = 1
+
+[mgr.border_style]
+fg = "#2F2B30"
+
+[mgr.count_copied]
+bg = "#F6CF94"
+fg = "#191719"
+
+[mgr.count_cut]
+bg = "#FFB3B3"
+fg = "#191719"
+
+[mgr.count_selected]
+bg = "#A6CE94"
+fg = "#191719"
+
+[mgr.cwd]
+fg = "#94F7E4"
+
+[mgr.find_keyword]
+fg = "#F6CF94"
+italic = true
+
+[mgr.find_position]
+bg = "reset"
+fg = "#7E7480"
+italic = true
+
+[mgr.hovered]
+bg = "#3A363B"
+
+[mgr.marker_copied]
+bg = "#F6CF94"
+fg = "#F6CF94"
+
+[mgr.marker_cut]
+bg = "#FFB3B3"
+fg = "#FFB3B3"
+
+[mgr.marker_marked]
+bg = "#94F7E4"
+fg = "#94F7E4"
+
+[mgr.marker_selected]
+bg = "#A6CE94"
+fg = "#A6CE94"
+
+[mgr.preview_hovered]
+underline = true
+
+[mgr.tab_active]
+bg = "#C58EA7"
+bold = true
+fg = "#191719"
+
+[mgr.tab_inactive]
+bg = "#2F2B30"
+fg = "#7E7480"
+
+[mode.normal_alt]
+bg = "#2F2B30"
+fg = "#C58EA7"
+
+[mode.normal_main]
+bg = "#C58EA7"
+bold = true
+fg = "#191719"
+
+[mode.select_alt]
+bg = "#2F2B30"
+fg = "#A6CE94"
+
+[mode.select_main]
+bg = "#A6CE94"
+bold = true
+fg = "#191719"
+
+[mode.unset_alt]
+bg = "#2F2B30"
+fg = "#FA9EC4"
+
+[mode.unset_main]
+bg = "#FA9EC4"
+bold = true
+fg = "#191719"
+
+[notify.title_error]
+fg = "#FFB3B3"
+
+[notify.title_info]
+fg = "#B4FA9E"
+
+[notify.title_warn]
+fg = "#F6CF94"
+
+[pick.active]
+bold = true
+fg = "#CF94F7"
+
+[pick.border]
+fg = "#C58EA7"
+
+[pick.inactive]
+fg = "#7E7480"
+
+[status]
+separator_close = ""
+separator_open = ""
+
+[status.perm_exec]
+fg = "#B4FA9E"
+
+[status.perm_read]
+fg = "#F6CF94"
+
+[status.perm_sep]
+fg = "#7E7480"
+
+[status.perm_type]
+fg = "#9EC4FE"
+
+[status.perm_write]
+fg = "#FFB3B3"
+
+[status.progress_error]
+bg = "#2F2B30"
+fg = "#FFB3B3"
+
+[status.progress_label]
+bold = true
+fg = "#FFFFFF"
+
+[status.progress_normal]
+bg = "#2F2B30"
+fg = "#C58EA7"
+
+[status.separator_style]
+bg = "#2F2B30"
+fg = "#2F2B30"
+
+[tasks.border]
+fg = "#C58EA7"
+
+[tasks.hovered]
+fg = "#CF94F7"
+underline = true
+
+[tasks.title]
+
+[which]
+separator = "  "
+
+[which.cand]
+fg = "#94F7E4"
+
+[which.desc]
+fg = "#C58EA7"
+
+[which.mask]
+bg = "#2F2B30"
+
+[which.rest]
+fg = "#7E7480"
+
+[which.separator_style]
+fg = "#7E7480"

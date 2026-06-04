@@ -1,0 +1,24 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+add_newline = false
+scan_timeout = 1000
+
+format = """
+${custom.rainbow}\
+$cmd_duration\
+$character"""
+
+[custom.rainbow]
+command = "rainbow-prompt"
+when = "true"
+format = "$output "
+
+
+[cmd_duration]
+format = "[$duration]($style) "
+style = "blue"
+
+[character]
+success_symbol = "[❯](#c4a0e8)"
+error_symbol = "[❯](#ffb3b3)"
+vimcmd_symbol = "[❮](#a0d8ef)"

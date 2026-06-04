@@ -1,0 +1,38 @@
+# Fast dev-loop BASE image. Bakes only Nix; the Home Manager config is activated
+# at RUNTIME against your bind-mounted working tree, with a persistent /nix
+# volume so the toolchain downloads once. Iterate: edit on the host, re-run, fast.
+#
+# Driven by ./nix-test/dev.sh (which wires up the /nix volume + the bind-mount).
+
+FROM debian:bookworm-slim
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl git xz-utils ca-certificates sudo procps rsync \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd --create-home --shell /bin/bash romance \
+    && echo 'romance ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/romance \
+    && install -d -o romance -g romance -m 0755 /nix
+
+RUN mkdir -p /etc/nix && printf '%s\n' \
+        'experimental-features = nix-command flakes' \
+        'sandbox = false' \
+        'filter-syscalls = false' \
+        'http2 = false' \
+        'download-attempts = 5' \
+    > /etc/nix/nix.conf
+
+# Entrypoint lives in the image (not /home), so it stays fresh when you rebuild.
+COPY dev-entrypoint.sh /usr/local/bin/dev-entrypoint
+RUN chmod +x /usr/local/bin/dev-entrypoint
+
+USER romance
+WORKDIR /home/romance
+ENV USER=romance HOME=/home/romance
+
+# Nix is baked in. A named volume mounted at /nix is seeded from this on first
+# run, then persists the store (your toolchain) across runs.
+RUN curl -L https://nixos.org/nix/install | sh -s -- --no-daemon
+
+ENTRYPOINT ["/usr/local/bin/dev-entrypoint"]
