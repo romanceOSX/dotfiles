@@ -27,8 +27,16 @@
 
     extraConfig = ''
       # --- General ---
+      # `v` starts a selection. `y` is intentionally NOT rebound here: the
+      # tmux-yank plugin binds it to copy to the system clipboard (pbcopy /
+      # xclip / wl-copy, auto-detected). Overriding it with a bare
+      # copy-pipe-and-cancel would only fill tmux's internal buffer — under HM
+      # extraConfig is applied *after* plugins, so the override would win and
+      # break clipboard copy (it doesn't under TPM, where plugins load last).
       bind-key -T copy-mode-vi v send-keys -X begin-selection
-      bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel
+      # Also let tmux push copies to the terminal's clipboard via OSC52, so
+      # Enter / mouse-drag copies reach the system clipboard too.
+      set -g set-clipboard on
       set -g detach-on-destroy off     # Stay in tmux when session closes
       set -g renumber-windows on       # No gaps after closing windows
       set -g repeat-time 700
@@ -82,7 +90,11 @@
       bind C-l send-keys 'clear' Enter
 
       # --- resurrect / continuum (options consumed by the nix-managed plugins) ---
-      set-hook -g client-detached "run 'ls -t ~/.local/share/tmux/resurrect/tmux_resurrect_*.txt 2>/dev/null | tail -n +11 | xargs rm -f'"
+      # Pin the save dir to the XDG path. Without this, this resurrect build
+      # falls back to ~/.tmux/resurrect, which diverges from the cleanup hook
+      # below (so old saves accumulate unbounded). Keep both pointing here.
+      set -g @resurrect-dir "${config.xdg.dataHome}/tmux/resurrect"
+      set-hook -g client-detached "run 'ls -t ${config.xdg.dataHome}/tmux/resurrect/tmux_resurrect_*.txt 2>/dev/null | tail -n +11 | xargs rm -f'"
       set -g @continuum-restore 'on'
       set -g @continuum-save-interval '5'
 

@@ -1,4 +1,4 @@
-{ ... }:
+{ config, ... }:
 {
   # ---------------------------------------------------------------------------
   # lazygit — pastel-rainbow theme (translated from .config/lazygit/config.yml)
@@ -45,29 +45,27 @@
   };
 
   # ---------------------------------------------------------------------------
-  # neovim — EDITOR / vim alias
+  # neovim
+  #
+  # Nix only installs the binary (home.packages below) — it does NOT manage the
+  # config. `programs.neovim` is deliberately not used because it generates its
+  # own init.lua (provider shims) and would own ~/.config/nvim. Instead the whole
+  # config dir is a plain symlink to the standalone repo at ~/git/init.lua, so
+  # init.lua / lua / after / colors all come straight from there. Edits are live
+  # with no flake input, lock entry, or rebuild. `vim`/`vi` aliases + EDITOR live
+  # in shell.nix.
   # ---------------------------------------------------------------------------
-  programs.neovim = {
-    enable = true;
-    defaultEditor = true;
-    viAlias = true;
-    vimAlias = true; # provides the `vim` -> nvim alias from .commonrc
-    # Home Manager generates its own init.lua (providers only). Without this it
-    # never sources the repo config, so lazy.nvim never runs and plugins (e.g.
-    # lush) are absent from the runtimepath. Load the real config explicitly.
-    extraLuaConfig = ''
-      require("romance")
-    '';
-  };
+  xdg.configFile."nvim".source =
+    config.lib.file.mkOutOfStoreSymlink "/Users/romance/git/init.lua";
 
   # ---------------------------------------------------------------------------
   # git — identity (no .gitconfig was tracked in the repo; adjust as needed)
   # ---------------------------------------------------------------------------
   programs.git = {
     enable = true;
-    userName = "romance";
-    userEmail = "romanceosx@gmail.com";
-    extraConfig = {
+    settings = {
+      user.name = "romance";
+      user.email = "romanceosx@gmail.com";
       init.defaultBranch = "master";
     };
   };

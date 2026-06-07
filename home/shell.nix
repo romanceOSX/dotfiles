@@ -79,7 +79,8 @@
       pip = "pip3";
       python = "python3";
       "clang++" = "clang++ -std=c++20";
-      # `vim` -> `nvim` is provided by programs.neovim.vimAlias
+      vim = "nvim"; # neovim is installed as a plain package (see packages.nix)
+      vi = "nvim";
       cansniff = "cmd.exe /c cansniff.exe";
       cmd = "cmd.exe /c";
     } // lib.optionalAttrs pkgs.stdenv.isLinux {
