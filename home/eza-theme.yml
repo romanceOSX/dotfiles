@@ -1,0 +1,99 @@
+# eza theme — pastel rainbow, full truecolor (hex), no 16-colour fallbacks.
+# Palette: rose C58EA7 · mint 94F7E4 · green B4FA9E · purple CF94F7 ·
+#          peach F6CF94 · blue 9EC4FE · pink FA9EC4 · dim 5A5058 · text C8C0C5
+colourful: true
+
+filekinds:
+  normal:        {foreground: "#C8C0C5"}
+  directory:     {foreground: "#C58EA7", is_bold: true}
+  symlink:       {foreground: "#94F7E4"}
+  pipe:          {foreground: "#F6CF94"}
+  block_device:  {foreground: "#9EC4FE"}
+  char_device:   {foreground: "#CF94F7"}
+  socket:        {foreground: "#CF94F7"}
+  special:       {foreground: "#F6CF94"}
+  executable:    {foreground: "#B4FA9E", is_bold: true}
+  mount_point:   {foreground: "#9EC4FE"}
+
+perms:
+  user_read:           {foreground: "#B4FA9E"}
+  user_write:          {foreground: "#F6CF94"}
+  user_execute_file:   {foreground: "#FA9EC4"}
+  user_execute_other:  {foreground: "#FA9EC4"}
+  group_read:          {foreground: "#B4FA9E"}
+  group_write:         {foreground: "#F6CF94"}
+  group_execute:       {foreground: "#FA9EC4"}
+  other_read:          {foreground: "#B4FA9E"}
+  other_write:         {foreground: "#F6CF94"}
+  other_execute:       {foreground: "#FA9EC4"}
+  special_user_file:   {foreground: "#FA9EC4"}
+  special_other:       {foreground: "#F6CF94"}
+  attribute:           {foreground: "#5A5058"}
+
+size:
+  major:        {foreground: "#94F7E4"}
+  minor:        {foreground: "#5A5058"}
+  number_byte:  {foreground: "#94F7E4"}
+  number_kilo:  {foreground: "#94F7E4"}
+  number_mega:  {foreground: "#9EC4FE"}
+  number_giga:  {foreground: "#CF94F7"}
+  number_huge:  {foreground: "#FA9EC4"}
+  unit_byte:    {foreground: "#5A5058"}
+  unit_kilo:    {foreground: "#5A5058"}
+  unit_mega:    {foreground: "#5A5058"}
+  unit_giga:    {foreground: "#5A5058"}
+  unit_huge:    {foreground: "#5A5058"}
+
+users:
+  user_you:     {foreground: "#C58EA7"}
+  user_other:   {foreground: "#5A5058"}
+  user_root:    {foreground: "#FA9EC4"}
+  group_yours:  {foreground: "#CF94F7"}
+  group_other:  {foreground: "#5A5058"}
+  group_root:   {foreground: "#FA9EC4"}
+
+links:
+  normal:           {foreground: "#94F7E4"}
+  multi_link_file:  {foreground: "#F6CF94"}
+
+git:
+  new:         {foreground: "#B4FA9E"}
+  modified:    {foreground: "#F6CF94"}
+  deleted:     {foreground: "#FA9EC4"}
+  renamed:     {foreground: "#CF94F7"}
+  typechange:  {foreground: "#94F7E4"}
+  ignored:     {foreground: "#5A5058"}
+  conflicted:  {foreground: "#C58EA7"}
+
+git_repo:
+  branch_main:  {foreground: "#B4FA9E"}
+  branch_other: {foreground: "#F6CF94"}
+  git_clean:    {foreground: "#B4FA9E"}
+  git_dirty:    {foreground: "#F6CF94"}
+
+# file extension categories — this is what fixes the harsh 16-colour fallback
+# (e.g. flake.nix / Makefile fell into `build`).
+file_type:
+  image:       {foreground: "#CF94F7"}
+  video:       {foreground: "#FA9EC4"}
+  music:       {foreground: "#94F7E4"}
+  lossless:    {foreground: "#94F7E4"}
+  crypto:      {foreground: "#C58EA7"}
+  document:    {foreground: "#9EC4FE"}
+  compressed:  {foreground: "#F6CF94"}
+  temp:        {foreground: "#5A5058"}
+  compiled:    {foreground: "#C58EA7"}
+  build:       {foreground: "#F6CF94"}
+  source:      {foreground: "#B4FA9E"}
+
+punctuation:          {foreground: "#5A5058"}
+date:                 {foreground: "#9EC4FE"}
+inode:                {foreground: "#5A5058"}
+blocks:               {foreground: "#5A5058"}
+header:               {foreground: "#CF94F7", is_bold: true, is_underline: true}
+octal:                {foreground: "#94F7E4"}
+flags:                {foreground: "#F6CF94"}
+symlink_path:         {foreground: "#94F7E4"}
+control_char:         {foreground: "#FA9EC4"}
+broken_symlink:       {foreground: "#FA9EC4", is_bold: true}
+broken_path_overlay:  {foreground: "#FA9EC4", is_underline: true}

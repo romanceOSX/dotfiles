@@ -58,6 +58,11 @@
   xdg.configFile."nvim".source =
     config.lib.file.mkOutOfStoreSymlink "/Users/romance/git/init.lua";
 
+  # eza — full pastel-rainbow theme in hex, so every category (incl. file-type
+  # classes like `build`) is truecolor and nothing falls back to a 16-colour
+  # terminal slot. Complements EZA_COLORS/LS_COLORS in shell.nix.
+  xdg.configFile."eza/theme.yml".source = ./eza-theme.yml;
+
   # ---------------------------------------------------------------------------
   # git — identity (no .gitconfig was tracked in the repo; adjust as needed)
   # ---------------------------------------------------------------------------
@@ -67,6 +72,44 @@
       user.name = "romance";
       user.email = "romanceosx@gmail.com";
       init.defaultBranch = "master";
+    };
+  };
+
+  # bat — `cat` replacement / pager. "Coldark-Dark" is a soft, muted theme that
+  # sits well next to the pastel-rainbow palette; delta shares it below.
+  programs.bat = {
+    enable = true;
+    config.theme = "Coldark-Dark";
+  };
+
+  # delta — syntax-highlighted pager for `git diff` / `git show` / `git log -p`.
+  # (Standalone `delta` is also aliased to `diff` for ad-hoc file compares.)
+  # Pastel-rainbow palette: rose C58EA7 · mint 94F7E4 · green B4FA9E ·
+  # purple CF94F7 · peach F6CF94 · blue 9EC4FE · pink FA9EC4.
+  programs.delta = {
+    enable = true;
+    enableGitIntegration = true;
+    options = {
+      navigate = true; # n / N to jump between files in the diff
+      line-numbers = true;
+      syntax-theme = "Coldark-Dark"; # match bat
+      # added/removed line backgrounds — muted sage / dusty rose
+      plus-style = "syntax #243026";
+      plus-emph-style = "syntax #38503f";
+      minus-style = "syntax #34232b";
+      minus-emph-style = "syntax #5a3a48";
+      # gutter line numbers in pastel
+      line-numbers-plus-style = "#B4FA9E"; # green
+      line-numbers-minus-style = "#FA9EC4"; # pink
+      line-numbers-zero-style = "#5A5058"; # dim
+      line-numbers-left-style = "#5A5058";
+      line-numbers-right-style = "#5A5058";
+      # file + hunk headers
+      file-style = "#CF94F7"; # purple
+      file-decoration-style = "#CF94F7 ul";
+      hunk-header-style = "syntax";
+      hunk-header-decoration-style = "#94F7E4 box"; # mint
+      hunk-header-line-number-style = "#9EC4FE"; # blue
     };
   };
 }

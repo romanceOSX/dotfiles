@@ -23,6 +23,12 @@
       "tw=1;38;2;246;207;148"
       "ow=38;2;246;207;148"
     ];
+    # eza reads its full pastel-rainbow theme from theme.yml (deployed by
+    # programs.nix). This build does NOT auto-discover $XDG_CONFIG_HOME/eza, so
+    # the dir must be named explicitly — without it eza falls back to harsh
+    # 16-colour defaults. theme.yml (hex, truecolor) is the single source of
+    # truth, so no EZA_COLORS is needed.
+    EZA_CONFIG_DIR = "${config.xdg.configHome}/eza";
   };
 
   # ~/.local/bin (scripts) + TeX on macOS. scripts.nix also adds ~/.local/bin,
@@ -71,11 +77,28 @@
 
     shellAliases = {
       "%" = " ";
-      l = "ls -alh";
-      ls = "ls --color=auto"; # nix coreutils ls is GNU, honours LS_COLORS
+
+      # --- modern CLI replacements (tools installed in packages.nix) ---
+      # eza for ls/listing/tree; --icons=auto only decorates a tty.
+      ls = "eza --color=auto --icons=auto --group-directories-first";
+      l = "eza -alh --color=auto --icons=auto --group-directories-first"; # all + long + header
+      ll = "eza -lh --color=auto --icons=auto --group-directories-first";
+      la = "eza -a --color=auto --icons=auto --group-directories-first";
+      tree = "eza --tree --icons=auto --group-directories-first";
+      cat = "bat --paging=never"; # cat-like; bat auto-plain when piped
+      du = "dust";
+      df = "duf";
+      ps = "procs";
+      top = "btop";
+      watch = "viddy";
+      diff = "delta";
+      which = "command -v";
+      # NOTE: find/grep/man are intentionally NOT aliased to fd/rg/tldr — their
+      # CLIs differ enough that aliasing breaks flags and pipelines. Use the new
+      # tools by name (`fd`, `rg`, `tldr`); `cd` is replaced by zoxide below.
+
       lg = "lazygit";
       g = "git";
-      diff = "diff -u";
       pip = "pip3";
       python = "python3";
       "clang++" = "clang++ -std=c++20";
@@ -133,6 +156,12 @@
       zle -N edit-command-line
       bindkey '^X^E' edit-command-line
 
+      # --- run-help: drop zsh's default `run-help=man` alias (the last alias
+      # still pointing at a legacy util) for the smarter autoloaded function,
+      # which understands builtins, aliases and git subcommands, not just man. ---
+      unalias run-help 2>/dev/null
+      autoload -Uz run-help
+
       # --- fzf-tab tuning (from .commonrc) ---
       zstyle ':completion:*' menu no
       zstyle ':fzf-tab:*' fzf-flags --bind=tab:accept
@@ -155,6 +184,16 @@
   programs.fzf = {
     enable = true;
     enableZshIntegration = true; # ^R / ^T / ALT-C + ** completion
+  };
+
+  # ---------------------------------------------------------------------------
+  # zoxide — smart `cd`. `--cmd cd` shadows the builtin so `cd` learns/jumps;
+  # `cdi` gives the interactive picker. Plain `cd <path>` still works as normal.
+  # ---------------------------------------------------------------------------
+  programs.zoxide = {
+    enable = true;
+    enableZshIntegration = true;
+    options = [ "--cmd cd" ];
   };
 
   # ---------------------------------------------------------------------------

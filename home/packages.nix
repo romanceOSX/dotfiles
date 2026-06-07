@@ -36,17 +36,33 @@
             coreutils # GNU ls/etc. — makes `ls --color` + LS_COLORS work everywhere
             gawk # rainbow-prompt / tmux-rainbow sine-wave gradients
             gnused
-            bat # tmux `?` keybind popup
-            ripgrep
-            fd
             stow # keep the non-nix stow install path working too
             fastfetch
             hyfetch
-            nmap
             colima
-            btop
             cmake
             macchina
+
+            # --- modern CLI replacements (aliased in shell.nix) ---
+            eza # ls  — listing + tree + git status
+            # bat (cat) is wired via programs.bat in programs.nix (themed).
+            fd # find — simpler/faster file search
+            ripgrep # grep — fast recursive text search
+            dust # du  — disk-usage tree
+            duf # df  — filesystem usage
+            procs # ps  — process listing
+            btop # top — interactive monitor
+            tealdeer # man — `tldr` example-driven docs
+            viddy # watch — live command output
+            delta # diff — syntax-highlighted diffs (also git pager, see programs.nix)
+            # zoxide (cd) is wired via programs.zoxide in shell.nix.
+            # fzf (history/fuzzy) is wired via programs.fzf in shell.nix.
+
+            # --- networking ---
+            nmap # port scanner
+            curl # HTTP client
+            dig # DNS lookups (from bind)
+            mtr # traceroute + ping combined
         ]
         ++ lib.optionals stdenv.isLinux [
             # macOS ships these; on Linux pull them in for the scripts/clipboard yank.
@@ -54,5 +70,6 @@
             wl-clipboard
             inetutils # `hostname` for rainbow-prompt
             xdg-utils # provides xdg-open (aliased to `open` in shell.nix)
+            iproute2 # `ip` / `ss` — Linux-native, not available on macOS
         ];
 }
