@@ -64,6 +64,11 @@
             dig # DNS lookups (from bind)
             mtr # traceroute + ping combined
         ]
+        ++ lib.optionals stdenv.isDarwin [
+            # `ip` shim wrapping ifconfig/netstat/route. Partial coverage of the
+            # real iproute2 (handles `ip addr`/`route`/`link`; no `ss`).
+            iproute2mac
+        ]
         ++ lib.optionals stdenv.isLinux [
             # macOS ships these; on Linux pull them in for the scripts/clipboard yank.
             xclip
