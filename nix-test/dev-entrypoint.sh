@@ -8,7 +8,7 @@ set -u
 
 . "$HOME/.nix-profile/etc/profile.d/nix.sh" 2>/dev/null || true
 
-HM_HOST="${HM_HOST:-romance@debian}"
+HM_HOST="${HM_HOST:-debian}"
 
 if [ -d /src ]; then
   echo ">> syncing /src -> ~/git/dotfiles (path flake, sans .git)"
