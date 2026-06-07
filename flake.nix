@@ -3,6 +3,13 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Pinned to the nixpkgs commit that first shipped neovim 0.12.0 (before
+    # the 0.12.2 treesitter core regression — vim.treesitter.get_range crashes
+    # on markdown injection queries with "attempt to call method 'range' (a
+    # nil value)"). 0.11.x lacks features aerial.nvim needs, so 0.12.0 is the
+    # sweet spot. The editor is pinned independently of the rest of the system
+    # packages — see home/packages.nix.
+    nixpkgs-neovim.url = "github:NixOS/nixpkgs/ccb635f945aa6d34300627e70633878645db2db3";
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -10,7 +17,7 @@
   };
 
   outputs =
-    { nixpkgs, home-manager, ... }:
+    { nixpkgs, nixpkgs-neovim, home-manager, ... }:
     let
       # Machine-local identity — each host defines local.nix once (gitignored).
       # Falls back to sensible defaults if missing.
@@ -29,6 +36,12 @@
           pkgs = import nixpkgs {
             inherit system;
             config.allowUnfree = true;
+          };
+          extraSpecialArgs = {
+            pkgs-neovim = import nixpkgs-neovim {
+              inherit system;
+              config.allowUnfree = true;
+            };
           };
           modules = [
             ./home

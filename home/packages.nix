@@ -1,14 +1,20 @@
-{ pkgs, lib, ... }:
+{ pkgs, pkgs-neovim, lib, ... }:
 {
     # Toolchains + the CLI utilities the configs/scripts assume on PATH.
     # (zsh, fzf, starship, lazygit, yazi, tmux, git come from their own
     #  program modules in shell.nix / programs.nix / tmux.nix.)
     home.packages =
-        with pkgs;
         [
             # --- editor (config is an out-of-store symlink, see programs.nix) ---
-            neovim
-
+            # Pinned to neovim 0.12.0 — see nixpkgs-neovim in flake.nix.
+            # 0.12.2 has a treesitter core regression that crashes
+            # render-markdown.nvim with "attempt to call method 'range'
+            # (a nil value)" on every cursor move in markdown buffers;
+            # 0.11.x lacks features aerial.nvim needs. 0.12.0 predates
+            # the regression and supports aerial.
+            pkgs-neovim.neovim
+        ]
+        ++ (with pkgs; [
             # --- toolchains (chosen via setup) ---
             nodejs_22 # Node.js (replaces the homebrew nvm lazy-load on nix hosts)
             rustc
@@ -18,6 +24,7 @@
             rust-analyzer
             clang # provides clang++ (clang++ -std=c++20 alias)
             clang-tools # provides clangd (matches .clangd)
+            tree-sitter # CLI used by nvim-treesitter (main branch) to build parsers
 
             # --- LSP servers ---
             lua-language-server
@@ -43,6 +50,16 @@
             cmake
             macchina
 
+            # --- yazi preview dependencies (file previewers) ---
+            ffmpeg # video thumbnails / transcoding
+            jq # JSON preview + plugin scripts
+            poppler-utils # PDF previews (pdftoppm)
+            _7zz # archive previews (7zz)
+            resvg # SVG previews
+            imagemagick # image previews / convert
+            chafa # terminal image previewer
+            nerd-fonts.symbols-only # glyph icons for prompt + yazi
+
             # --- modern CLI replacements (aliased in shell.nix) ---
             eza # ls  — listing + tree + git status
             # bat (cat) is wired via programs.bat in programs.nix (themed).
@@ -63,18 +80,18 @@
             curl # HTTP client
             dig # DNS lookups (from bind)
             mtr # traceroute + ping combined
-        ]
-        ++ lib.optionals stdenv.isDarwin [
+        ])
+        ++ lib.optionals pkgs.stdenv.isDarwin [
             # `ip` shim wrapping ifconfig/netstat/route. Partial coverage of the
             # real iproute2 (handles `ip addr`/`route`/`link`; no `ss`).
-            iproute2mac
+            pkgs.iproute2mac
         ]
-        ++ lib.optionals stdenv.isLinux [
+        ++ lib.optionals pkgs.stdenv.isLinux [
             # macOS ships these; on Linux pull them in for the scripts/clipboard yank.
-            xclip
-            wl-clipboard
-            inetutils # `hostname` for rainbow-prompt
-            xdg-utils # provides xdg-open (aliased to `open` in shell.nix)
-            iproute2 # `ip` / `ss` — Linux-native, not available on macOS
+            pkgs.xclip
+            pkgs.wl-clipboard
+            pkgs.inetutils # `hostname` for rainbow-prompt
+            pkgs.xdg-utils # provides xdg-open (aliased to `open` in shell.nix)
+            pkgs.iproute2 # `ip` / `ss` — Linux-native, not available on macOS
         ];
 }

@@ -11,9 +11,9 @@
     LSCOLORS = "FxGxCxDxFxegedabagacad";
     # Pastel-rainbow LS_COLORS — same palette as rainbow-prompt / yazi.
     LS_COLORS = lib.concatStringsSep ":" [
-      "di=1;38;2;197;142;167"
+      "di=1;38;2;148;247;228"
       "ln=1;38;2;148;247;228"
-      "ex=1;38;2;180;250;158"
+      "ex=1;38;2;163;220;191"
       "so=1;38;2;207;148;247"
       "pi=38;2;246;207;148"
       "bd=38;2;158;196;254"
@@ -75,8 +75,8 @@
       # --- modern CLI replacements (tools installed in packages.nix) ---
       # eza for ls/listing/tree; --icons=auto only decorates a tty.
       ls = "eza --color=auto --icons=auto --group-directories-first";
-      l = "eza -alh --color=auto --icons=auto --group-directories-first"; # all + long + header
-      ll = "eza -lh --color=auto --icons=auto --group-directories-first";
+      l = "eza -al --color=auto --icons=auto --group-directories-first"; # all + long
+      ll = "eza -l --color=auto --icons=auto --group-directories-first";
       la = "eza -a --color=auto --icons=auto --group-directories-first";
       tree = "eza --tree --icons=auto --group-directories-first";
       cat = "bat --paging=never"; # cat-like; bat auto-plain when piped
