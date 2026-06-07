@@ -23,12 +23,6 @@
       "tw=1;38;2;246;207;148"
       "ow=38;2;246;207;148"
     ];
-    # eza reads its full pastel-rainbow theme from theme.yml (deployed by
-    # programs.nix). This build does NOT auto-discover $XDG_CONFIG_HOME/eza, so
-    # the dir must be named explicitly — without it eza falls back to harsh
-    # 16-colour defaults. theme.yml (hex, truecolor) is the single source of
-    # truth, so no EZA_COLORS is needed.
-    EZA_CONFIG_DIR = "${config.xdg.configHome}/eza";
   };
 
   # ~/.local/bin (scripts) + TeX on macOS. scripts.nix also adds ~/.local/bin,
@@ -120,6 +114,14 @@
     ];
 
     initContent = ''
+      # --- eza pastel-rainbow theme ---
+      # eza reads theme.yml (deployed by programs.nix) from EZA_CONFIG_DIR; this
+      # build does NOT auto-discover ~/.config/eza. Set here (interactive init)
+      # rather than home.sessionVariables so EVERY shell gets it — including tmux
+      # panes that inherit a frozen server env from before the var existed.
+      # Without it eza falls back to harsh default ANSI colours.
+      export EZA_CONFIG_DIR="${config.xdg.configHome}/eza"
+
       # --- prompt cosmetics (from .zshrc) ---
       PROMPT_SP=""
       unsetopt PROMPT_CR
