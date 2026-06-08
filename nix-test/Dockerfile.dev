@@ -7,13 +7,18 @@
 FROM debian:bookworm-slim
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
+# The login name to bake into the image. Override to test that the flake works
+# under a different username (machines vary): `dev.sh <host> <username>`.
+# UID is fixed at 1000 so the shared /nix volume stays usable across usernames.
+ARG USERNAME=romance
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl git xz-utils ca-certificates sudo procps rsync \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd --create-home --shell /bin/bash romance \
-    && echo 'romance ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/romance \
-    && install -d -o romance -g romance -m 0755 /nix
+RUN useradd --create-home --uid 1000 --shell /bin/bash "$USERNAME" \
+    && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$USERNAME" \
+    && install -d -o "$USERNAME" -g "$USERNAME" -m 0755 /nix
 
 RUN mkdir -p /etc/nix && printf '%s\n' \
         'experimental-features = nix-command flakes' \
@@ -27,9 +32,9 @@ RUN mkdir -p /etc/nix && printf '%s\n' \
 COPY dev-entrypoint.sh /usr/local/bin/dev-entrypoint
 RUN chmod +x /usr/local/bin/dev-entrypoint
 
-USER romance
-WORKDIR /home/romance
-ENV USER=romance HOME=/home/romance
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}
+ENV USER=${USERNAME} HOME=/home/${USERNAME}
 
 # Nix is baked in. A named volume mounted at /nix is seeded from this on first
 # run, then persists the store (your toolchain) across runs.

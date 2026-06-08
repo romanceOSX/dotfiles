@@ -1,9 +1,0 @@
-# Used when building nix-test/Dockerfile.local with the repo root as context.
-# Dropping .git makes Nix treat the copied tree as a *path* flake, so it sees
-# untracked files (home/yazi/, home/starship.toml, …) — letting us test the
-# local working tree as-is. (The main nix-test/Dockerfile uses ./nix-test as
-# context and is unaffected by this file.)
-.git
-result
-result-*
-.direnv

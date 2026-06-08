@@ -18,6 +18,13 @@ if [ -d /src ]; then
     --exclude='.direnv' --exclude='local.nix' \
     /src/ ~/git/dotfiles/
   sed -i "s/x86_64-linux/$(uname -m)-linux/g" ~/git/dotfiles/flake.nix
+
+  # Drive the flake's machine-local identity from THIS container's user, so the
+  # same image tests any username (dev.sh's 2nd arg). local.nix is gitignored and
+  # excluded from the rsync above, so this never leaks back to the host tree.
+  echo ">> writing local.nix for ${USER} (${HOME})"
+  printf '{ username = "%s"; homeDirectory = "%s"; }\n' "$USER" "$HOME" \
+    > ~/git/dotfiles/local.nix
 fi
 
 echo ">> home-manager switch --flake .#${HM_HOST}   (store cached in the /nix volume)"

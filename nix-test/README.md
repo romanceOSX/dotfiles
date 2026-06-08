@@ -1,14 +1,12 @@
-# nix-test — Home Manager sandboxes
+# nix-test — Home Manager sandbox
 
-Throwaway Debian containers that install Nix from scratch and run a **real
+A throwaway Debian container that installs Nix from scratch and runs a **real
 `home-manager switch`**, so you can verify the flake end-to-end without touching
-your real machine. Three flavours, by use case:
+your real machine.
 
 | File | Source tested | Loop speed | Use it for |
 |---|---|---|---|
 | `dev.sh` + `Dockerfile.dev` | **local working tree** (live) | **fast** (persistent `/nix`) | iterating on WIP |
-| `Dockerfile.local` | local working tree (baked) | slow (full rebuild) | one-shot WIP snapshot |
-| `Dockerfile` | **committed branch** (cloned) | slow (full rebuild) | "does a fresh clone work" |
 
 Start your Docker daemon (OrbStack / Docker Desktop / colima) first.
 
@@ -19,8 +17,8 @@ runtime against a bind-mount, with a persistent `/nix` volume so the toolchain
 downloads only once.
 
 ```sh
-./nix-test/dev.sh                 # activate romance@debian on this arch, drop into zsh
-./nix-test/dev.sh romance@wsl     # a different host
+./nix-test/dev.sh                 # host `debian` as user romance, drop into zsh
+./nix-test/dev.sh wsl             # a different flake host
 ```
 
 Edit your config on the host, re-run `./nix-test/dev.sh`, and `switch` is fast
@@ -30,18 +28,22 @@ synced into a path flake, so Nix sees everything — no `git add` needed).
 - First run downloads the whole toolchain into the `hm-nix` volume (slow, once).
 - Reset the cached store with `docker volume rm hm-nix`.
 
-## one-shot, baked images
+### testing a different username
+
+Other machines won't have you as `romance`. Pass a username as the 2nd arg to
+build the container under that login and verify the flake activates cleanly:
 
 ```sh
-# local working tree, baked into an image:
-docker build -f nix-test/Dockerfile.local -t hm-test-local .   # context = repo root
-docker run --rm -it hm-test-local
-
-# the committed/pushed branch (what another machine would clone):
-docker build -t hm-test ./nix-test
-docker run --rm -it hm-test
-docker build --build-arg REF=my-branch --build-arg HM_HOST=romance@wsl -t hm-test ./nix-test
+./nix-test/dev.sh debian alice    # same config, but as user `alice`
 ```
+
+How it works: the flake reads machine-local identity from a gitignored
+`local.nix` (falling back to `romance`). The container's entrypoint generates
+that `local.nix` from its own `$USER`/`$HOME`, so `home.username` /
+`home.homeDirectory` follow the chosen login automatically. The UID is pinned to
+1000 for every username, so the shared `hm-nix` store volume stays reusable.
+Each username gets its own image tag (`hm-dev-<username>`) so builds stay cached
+independently.
 
 ## notes
 

@@ -49,6 +49,7 @@
             colima
             cmake
             macchina
+            openai-whisper
 
             # --- yazi preview dependencies (file previewers) ---
             ffmpeg # video thumbnails / transcoding

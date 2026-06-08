@@ -8,4 +8,3 @@ flake\.nix
 flake\.lock
 home
 nix-test
-\.dockerignore
