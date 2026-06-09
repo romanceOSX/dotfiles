@@ -4,6 +4,3 @@
 result
 result-*
 .direnv/
-
-# machine-local overrides (not tracked)
-local.nix
