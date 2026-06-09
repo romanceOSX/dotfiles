@@ -56,7 +56,7 @@
   # in shell.nix.
   # ---------------------------------------------------------------------------
   xdg.configFile."nvim".source =
-    config.lib.file.mkOutOfStoreSymlink "/Users/romance/git/init.lua";
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/init.lua";
 
   # eza — full pastel-rainbow theme in hex, so every category (incl. file-type
   # classes like `build`) is truecolor and nothing falls back to a 16-colour

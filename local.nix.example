@@ -1,0 +1,6 @@
+# Copy this file to local.nix and adjust for your machine:
+#   cp local.nix.example local.nix
+{
+  username = "romance";
+  homeDirectory = "/home/romance";
+}

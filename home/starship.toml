@@ -5,6 +5,7 @@ scan_timeout = 1000
 
 format = """
 ${custom.rainbow}\
+$nix_shell\
 $cmd_duration\
 $character"""
 
@@ -17,6 +18,15 @@ format = "$output "
 [cmd_duration]
 format = "[$duration]($style) "
 style = "blue"
+
+# Marker when inside `nix develop` / `nix-shell`. Pastel-peach to match the
+# rainbow palette. Heuristic mode also detects flake-based dev shells.
+[nix_shell]
+disabled = false
+heuristic = true
+symbol = "❄️"
+format = "[$symbol]($style) "
+style = "bold #F6CF94"
 
 [character]
 success_symbol = "[❯](#c4a0e8)"

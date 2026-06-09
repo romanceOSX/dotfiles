@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Adds Nix profile paths to sudo's secure_path so that `sudo <nix-pkg>`
+# works without manual PATH forwarding.
+#
+# All edits go through visudo (writes to a temp file, validates syntax,
+# then atomically replaces /etc/sudoers). Never touches sudoers directly.
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Re-running with sudo..."
+    exec sudo bash "$0" "$@"
+fi
+
+REAL_HOME=$(getent passwd "${SUDO_USER:-$USER}" | cut -d: -f6)
+NIX_PATHS="/nix/var/nix/profiles/default/bin:${REAL_HOME}/.nix-profile/bin"
+SUDOERS="/etc/sudoers"
+
+if grep -q "${REAL_HOME}/.nix-profile/bin" "$SUDOERS"; then
+    echo "Nix paths already present in secure_path. Nothing to do."
+    exit 0
+fi
+
+# Build the new sudoers content in a temp file
+TMPFILE=$(mktemp)
+trap 'rm -f "$TMPFILE"' EXIT
+
+if grep -q '^Defaults.*secure_path' "$SUDOERS"; then
+    # Append Nix paths to the existing secure_path line
+    sed "s|\(Defaults.*secure_path=\"[^\"]*\)\"|\1:${NIX_PATHS}\"|" "$SUDOERS" > "$TMPFILE"
+else
+    # No secure_path exists — add one with standard + Nix paths
+    cp "$SUDOERS" "$TMPFILE"
+    echo "Defaults secure_path=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${NIX_PATHS}\"" >> "$TMPFILE"
+fi
+
+# Validate and install atomically via visudo
+if visudo -c -f "$TMPFILE" >/dev/null 2>&1; then
+    cp "$TMPFILE" "$SUDOERS"
+    echo "Done — Nix paths added to secure_path."
+else
+    echo "ERROR: generated sudoers failed syntax check. No changes made."
+    exit 1
+fi
