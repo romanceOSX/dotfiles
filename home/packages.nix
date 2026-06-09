@@ -70,7 +70,6 @@
             dust # du  — disk-usage tree
             duf # df  — filesystem usage
             procs # ps  — process listing
-            btop # top — interactive monitor
             tealdeer # man — `tldr` example-driven docs
             viddy # watch — live command output
             delta # diff — syntax-highlighted diffs (also git pager, see programs.nix)

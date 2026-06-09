@@ -1,0 +1,68 @@
+# Muted pastel rainbow — full-spectrum gradients, dark background
+# Each meter sweeps through a wide rainbow arc (not just adjacent hues)
+# Palette: rose #C58EA7 · peach #C4A07A · yellow #AAAA7E · sage #8EAA8E
+#          teal #7EAAAA · slate #7E9DAA · lavender #9D8EBB
+
+theme[main_bg]=""
+theme[main_fg]="#C8C0C5"
+theme[title]="#D4CDD0"
+theme[hi_fg]="#9D8EBB"
+theme[selected_bg]="#6B4A5C"
+theme[selected_fg]="#E0D8DC"
+theme[inactive_fg]="#5A5058"
+theme[graph_text]="#B0A8AC"
+theme[meter_bg]="#2F2B30"
+theme[proc_misc]="#7EAAAA"
+
+# Box outlines — each a different hue, going round the wheel
+theme[cpu_box]="#9D8EBB"    # lavender
+theme[mem_box]="#8EAA8E"    # sage
+theme[net_box]="#7E9DAA"    # slate blue
+theme[proc_box]="#C58EA7"   # rose
+theme[div_line]="#3A3340"
+
+# CPU: rose → sage → lavender  (full warm-to-cool arc)
+theme[cpu_start]="#C58EA7"
+theme[cpu_mid]="#8EAA8E"
+theme[cpu_end]="#9D8EBB"
+
+# Temperature: lavender (cool) → sage → peach → rose (hot)
+# btop only has 3 stops, so we span lavender → peach → rose
+theme[temp_start]="#9D8EBB"
+theme[temp_mid]="#C4A07A"
+theme[temp_end]="#C58EA7"
+
+# Mem free: rose → teal → lavender
+theme[free_start]="#C58EA7"
+theme[free_mid]="#7EAAAA"
+theme[free_end]="#9D8EBB"
+
+# Mem cached: lavender → sage → yellow-green
+theme[cached_start]="#9D8EBB"
+theme[cached_mid]="#8EAA8E"
+theme[cached_end]="#AAAA7E"
+
+# Mem available: yellow → sage → teal
+theme[available_start]="#AAAA7E"
+theme[available_mid]="#8EAA8E"
+theme[available_end]="#7EAAAA"
+
+# Mem used: rose → peach → yellow  (warm danger ramp)
+theme[used_start]="#C58EA7"
+theme[used_mid]="#C4A07A"
+theme[used_end]="#AAAA7E"
+
+# Download: lavender → teal → sage  (cool spectrum)
+theme[download_start]="#9D8EBB"
+theme[download_mid]="#7EAAAA"
+theme[download_end]="#8EAA8E"
+
+# Upload: rose → lavender → slate  (warm → cool)
+theme[upload_start]="#C58EA7"
+theme[upload_mid]="#9D8EBB"
+theme[upload_end]="#7E9DAA"
+
+# Process heat: sage → teal → lavender
+theme[process_start]="#8EAA8E"
+theme[process_mid]="#7EAAAA"
+theme[process_end]="#9D8EBB"

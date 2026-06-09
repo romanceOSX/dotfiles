@@ -82,6 +82,28 @@
     config.theme = "Coldark-Dark";
   };
 
+  # btop — `top` replacement / interactive monitor. "pastel-rainbow" is a custom
+  # muted full-spectrum palette (NOT one of btop's bundled themes), so the theme
+  # file ships from this repo into ~/.config/btop/themes and is selected below.
+  # Previously it only existed as a hand-placed file on the mac, so it was missing
+  # in the dev container and on every other machine. theme_background = false
+  # because the theme leaves main_bg empty (uses the terminal background).
+  programs.btop = {
+    enable = true;
+    settings = {
+      color_theme = "pastel-rainbow";
+      theme_background = false;
+      truecolor = true;
+      update_ms = 2100;
+      proc_tree = true;
+      proc_per_core = true;
+      proc_mem_bytes = true;
+      presets = "cpu:1:default,proc:0:default cpu:0:default,mem:0:default,net:0:default cpu:0:block,net:0:tty";
+    };
+  };
+  xdg.configFile."btop/themes/pastel-rainbow.theme".source =
+    ./btop/pastel-rainbow.theme;
+
   # delta — syntax-highlighted pager for `git diff` / `git show` / `git log -p`.
   # (Standalone `delta` is also aliased to `diff` for ad-hoc file compares.)
   # Pastel-rainbow palette: rose C58EA7 · mint 94F7E4 · green B4FA9E ·
