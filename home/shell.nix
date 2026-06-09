@@ -114,6 +114,19 @@
     ];
 
     initContent = ''
+'' + lib.optionalString pkgs.stdenv.isDarwin ''
+      # --- keep nix's bins ahead of macOS system bins (PATH ordering) ---
+      # macOS /etc/zprofile runs path_helper, which rebuilds PATH with the
+      # /etc/paths system dirs FIRST and the inherited entries (incl.
+      # ~/.nix-profile/bin) appended. nix-daemon.sh would normally re-prepend the
+      # nix dirs, but in nested/inherited shells its __ETC_PROFILE_NIX_SOURCED
+      # guard makes it return early — so nix never gets back in front and
+      # /usr/bin/python3 (etc.) shadows the nix install. Re-assert the nix dirs at
+      # the front here (~/.zshrc runs after path_helper, and isn't guarded).
+      typeset -U path
+      path=( "$HOME/.nix-profile/bin" /nix/var/nix/profiles/default/bin $path )
+      export PATH
+'' + ''
       # --- eza pastel-rainbow theme ---
       # eza reads theme.yml (deployed by programs.nix) from EZA_CONFIG_DIR; this
       # build does NOT auto-discover ~/.config/eza. Set here (interactive init)
