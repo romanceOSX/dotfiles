@@ -166,10 +166,17 @@
       zle -N vi-yank-clip
       bindkey -M vicmd 'y' vi-yank-clip
 
-      # --- edit the command line in $EDITOR (^X^E) ---
+      # --- edit the command line in $EDITOR (^G) ---
+      # edit-command-line resets CURSOR to 0 on return, dumping you at the start
+      # of the prompt. Wrap it to land the cursor on the last written character.
       autoload -Uz edit-command-line
       zle -N edit-command-line
-      bindkey '^X^E' edit-command-line
+      function _edit-command-line-eol() {
+        zle edit-command-line
+        CURSOR=''${#BUFFER}
+      }
+      zle -N _edit-command-line-eol
+      bindkey '^G' _edit-command-line-eol
 
       # --- run-help: drop zsh's default `run-help=man` alias (the last alias
       # still pointing at a legacy util) for the smarter autoloaded function,
@@ -199,6 +206,16 @@
   programs.fzf = {
     enable = true;
     enableZshIntegration = true; # ^R / ^T / ALT-C + ** completion
+    # Uniform navigation across EVERY fzf picker (set via FZF_DEFAULT_OPTS, which
+    # the widgets, fzf-tab and zoxide's `cdi` all inherit):
+    #   ^N next · ^P prev · ^Y/Tab/Enter confirm.
+    # ^N/^P/Enter are already fzf defaults; ^Y and Tab are the real changes.
+    # NOTE: tab:accept removes Tab's multi-select toggle — fine for all current
+    # pickers (none use multi-select), but a future `-m` picker would need its
+    # own FZF_*_OPTS to rebind Tab back to toggle.
+    defaultOptions = [
+      "--bind=ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept"
+    ];
   };
 
   # ---------------------------------------------------------------------------
