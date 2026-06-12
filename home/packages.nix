@@ -30,6 +30,7 @@
             # --- LSP servers ---
             lua-language-server
             pyright
+            bash-language-server # `bashls` — also attached to zsh (see nvim lsp.lua)
 
             # --- formatters / linters ---
             stylua
