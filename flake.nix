@@ -30,8 +30,10 @@
       #   system        — nix system double (e.g. "x86_64-linux", "aarch64-darwin")
       #   username       — your login name on that machine
       #   homeDirectory  — absolute path to $HOME on that machine
+      #   isWSL          — true under WSL (Syncthing then runs on the Windows host,
+      #                    not via nix). Defaults to false (bare Linux / macOS).
       mkHome =
-        { system, username, homeDirectory }:
+        { system, username, homeDirectory, isWSL ? false }:
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
             inherit system;
@@ -42,6 +44,7 @@
               inherit system;
               config.allowUnfree = true;
             };
+            inherit isWSL;
           };
           modules = [
             ./home
@@ -65,11 +68,20 @@
         # WSL (Ubuntu/Debian under Windows) — uses local.nix identity
         "wsl" = mkHome {
           system = "x86_64-linux";
+          isWSL = true; # Syncthing runs on the Windows host, not via nix here
           inherit (local) username homeDirectory;
         };
 
         # bare-metal / VM Debian — uses local.nix identity
         "debian" = mkHome {
+          system = "x86_64-linux";
+          inherit (local) username homeDirectory;
+        };
+
+        # work machine (bare Linux, inside a VPN) — uses local.nix identity.
+        # Not WSL, so Syncthing runs via nix; pair it into the task-sync mesh
+        # by adding its `syncthing --device-id` to syncthingDevices.
+        "work" = mkHome {
           system = "x86_64-linux";
           inherit (local) username homeDirectory;
         };
