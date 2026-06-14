@@ -77,6 +77,14 @@
           system = "x86_64-linux";
           inherit (local) username homeDirectory;
         };
+
+        # work machine (bare Linux, inside a VPN) — uses local.nix identity.
+        # Not WSL, so Syncthing runs via nix; pair it into the task-sync mesh
+        # by adding its `syncthing --device-id` to syncthingDevices.
+        "work" = mkHome {
+          system = "x86_64-linux";
+          inherit (local) username homeDirectory;
+        };
       };
     };
 }
