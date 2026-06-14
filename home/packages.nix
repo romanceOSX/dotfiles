@@ -69,6 +69,7 @@
             fd # find — simpler/faster file search
             ripgrep # grep — fast recursive text search
             dust # du  — disk-usage tree
+            dua # du  — interactive disk-usage analyzer
             duf # df  — filesystem usage
             procs # ps  — process listing
             tealdeer # man — `tldr` example-driven docs

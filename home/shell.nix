@@ -10,7 +10,10 @@
     VISUAL = "nvim";
     LSCOLORS = "FxGxCxDxFxegedabagacad";
     # Pastel-rainbow LS_COLORS — same palette as rainbow-prompt / yazi.
+    # fi (default file) mirrors eza's `normal` #C8C0C5 so dust — which themes
+    # filenames purely via LS_COLORS — matches eza/yazi for both files and dirs.
     LS_COLORS = lib.concatStringsSep ":" [
+      "fi=38;2;200;192;197"
       "di=1;38;2;148;247;228"
       "ln=1;38;2;148;247;228"
       "ex=1;38;2;163;220;191"

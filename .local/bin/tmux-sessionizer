@@ -1,9 +1,14 @@
 #!/usr/bin/env sh
 
-if [ "$#" -eq 1 ]; then
+# -p <parent>: fzf-browse the immediate subdirs of <parent> (follows symlinks,
+# e.g. ~/notes -> iCloud). Bare arg: use it as the exact target. No args: fzf
+# over the default roots (~/git and home).
+if [ "$1" = "-p" ]; then
+    selected=$(find -L "$2" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | fzf)
+elif [ "$#" -eq 1 ]; then
     selected=$1
 else
-    selected=$(find ~/git ~ -mindepth 1 -maxdepth 1 -type d 2>/dev/null | fzf)
+    selected=$(find -L ~/git ~ ~/notes -mindepth 1 -maxdepth 1 -type d 2>/dev/null | fzf)
 fi
 
 if [ -z "$selected" ]; then

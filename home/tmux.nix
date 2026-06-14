@@ -73,14 +73,22 @@
       bind -r p previous-window
 
       # --- Sessions ---
-      # f acts as a prefix for a "find session" sub-menu (e.g. <prefix>f p, <prefix>f n).
-      # Each entry fzf-picks a subdir of the given folder and opens it via tmux-sessionizer.
-      # -L on find so symlinked folders (e.g. ~/notes -> iCloud) are followed.
-      bind f switch-client -T sessionizer
-      bind -T sessionizer p run-shell "tmux neww 'tmux-sessionizer \"$(find -L ~/git -mindepth 1 -maxdepth 1 -type d | fzf)\"'"
-      bind -T sessionizer g run-shell "tmux neww 'tmux-sessionizer \"$(find -L ~/git -mindepth 1 -maxdepth 1 -type d | fzf)\"'"
-      bind -T sessionizer n run-shell "tmux neww 'tmux-sessionizer \"$(find -L ~/notes -mindepth 1 -maxdepth 1 -type d | fzf)\"'"
-      bind -T sessionizer f run-shell "tmux neww tmux-sessionizer"
+      # <prefix>f opens a which-key-style menu (native display-menu) listing the
+      # session-finder keys and their actions, so the shortcuts are discoverable.
+      # Each entry fzf-browses a folder via tmux-sessionizer in a popup (which
+      # gives fzf a tty; -p makes the script follow symlinks like ~/notes).
+      bind f display-menu -T "#[align=centre,fg=#C58EA7]󰍉 sessionizer " -x C -y C \
+        "git    (~/git)"          g "display-popup -E 'tmux-sessionizer -p ~/git'" \
+        "git    (~/git)"          p "display-popup -E 'tmux-sessionizer -p ~/git'" \
+        "notes  (~/notes)"        n "display-popup -E 'tmux-sessionizer -p ~/notes'" \
+        "home   (~)"              h "display-popup -E 'tmux-sessionizer -p ~'" \
+        "" \
+        "all    (git + home + notes)" f "display-popup -E 'tmux-sessionizer'"
+
+      # Pastel styling for all display-menu popups (matches the nova status bar).
+      set -g menu-style "bg=#191719,fg=#7E7480"
+      set -g menu-selected-style "bg=#C58EA7,fg=#191719"
+      set -g menu-border-style "fg=#2F2B30"
       bind N command-prompt -p "Session name:" "new-session -s '%%'"
       bind -r ( switch-client -p
       bind -r ) switch-client -n
