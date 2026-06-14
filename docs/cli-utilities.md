@@ -17,7 +17,7 @@ on top, wired up in this repo. Packages live in `home/packages.nix` (the
 | `du` | **dust** | `du` → `dust` | disk-usage tree |
 | `df` | **duf** | `df` → `duf` | filesystem usage |
 | `ps` | **procs** | `ps` → `procs` | |
-| `top` | **btop** | `top` → `btop` | pastel-rainbow theme (`~/.config/btop/themes/pastel-rainbow.theme`) |
+| `top` | **btop** | *(no alias)* use `btop` | `top` kept as system default; pastel-rainbow theme (`~/.config/btop/themes/pastel-rainbow.theme`) |
 | `man` | **tealdeer** | *(no alias)* use `tldr` | example docs, not full pages — `man` kept intact |
 | `watch` | **viddy** | `watch` → `viddy` | |
 | `diff` | **delta** | `diff` → `delta`; also git pager | pastel diff styling |

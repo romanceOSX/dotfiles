@@ -86,7 +86,7 @@
       du = "dust";
       df = "duf";
       ps = "procs";
-      top = "btop";
+      # top intentionally NOT aliased — keep the system default; run `btop` explicitly.
       watch = "viddy";
       diff = "delta";
       which = "command -v";
