@@ -30,8 +30,10 @@
       #   system        — nix system double (e.g. "x86_64-linux", "aarch64-darwin")
       #   username       — your login name on that machine
       #   homeDirectory  — absolute path to $HOME on that machine
+      #   isWSL          — true under WSL (Syncthing then runs on the Windows host,
+      #                    not via nix). Defaults to false (bare Linux / macOS).
       mkHome =
-        { system, username, homeDirectory }:
+        { system, username, homeDirectory, isWSL ? false }:
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
             inherit system;
@@ -42,6 +44,7 @@
               inherit system;
               config.allowUnfree = true;
             };
+            inherit isWSL;
           };
           modules = [
             ./home
@@ -65,6 +68,7 @@
         # WSL (Ubuntu/Debian under Windows) — uses local.nix identity
         "wsl" = mkHome {
           system = "x86_64-linux";
+          isWSL = true; # Syncthing runs on the Windows host, not via nix here
           inherit (local) username homeDirectory;
         };
 

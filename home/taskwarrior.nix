@@ -1,4 +1,4 @@
-{ pkgs, lib, config, ... }:
+{ pkgs, lib, config, isWSL ? false, ... }:
 let
   # Taskwarrior 3.x keeps everything in a single SQLite db (taskchampion.sqlite3)
   # under dataLocation — NOT the flat *.data files of TW 2.x.
@@ -109,14 +109,14 @@ in
   };
 
   # ---------------------------------------------------------------------------
-  # Syncthing (macOS only — WSL uses the Windows host's Syncthing).
+  # Syncthing — runs on macOS and bare Linux, but NOT under WSL (there the
+  # Windows host runs Syncthing and WSL just symlinks into the synced folder).
   #
   # Replicates the local-sync op-log dir (NOT the live db). `versioning` keeps
-  # the last 10 copies as an extra safety net. Pair the Windows device + accept
-  # this folder from the Syncthing GUI (http://127.0.0.1:8384), or add the
-  # device id under settings.devices.
+  # the last 10 copies as an extra safety net. Peers come from syncthingDevices
+  # above; accept/inspect the folder from the GUI (http://127.0.0.1:8384).
   # ---------------------------------------------------------------------------
-  services.syncthing = lib.mkIf pkgs.stdenv.isDarwin {
+  services.syncthing = lib.mkIf (pkgs.stdenv.isDarwin || (pkgs.stdenv.isLinux && !isWSL)) {
     enable = true;
     # overrideDevices/overrideFolders default to true, so this declared set is
     # the source of truth — devices/folders added via the GUI get reverted on

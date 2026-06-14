@@ -50,10 +50,11 @@ and **Syncthing replicates that dir** (not the live DB) across machines.
 
 - **Automatic:** an `on-exit` hook runs `task sync` after every change, so you
   normally never sync by hand. `tsync` (= `task sync`) is there if you want to.
-- macOS runs Syncthing via nix (`services.syncthing`). Pair your other device +
-  accept the `taskwarrior-sync` folder at <http://127.0.0.1:8384>.
-- **WSL:** Syncthing runs on the *Windows host*; point the sync dir at the
-  Windows-synced folder, e.g.
+- **macOS & bare Linux** run Syncthing via nix (`services.syncthing`). Pair your
+  other device + accept the `taskwarrior-sync` folder at <http://127.0.0.1:8384>.
+- **WSL** is the exception: Syncthing runs on the *Windows host*, so the nix
+  service is disabled there (via the `isWSL` flag in `flake.nix`). Point the sync
+  dir at the Windows-synced folder instead, e.g.
   `ln -s /mnt/c/Users/<you>/task-sync ~/.local/share/task-sync`.
 
 ## Adding a new machine to the sync (read this when pulling on a new box)
@@ -79,9 +80,10 @@ The machine marked `introducer = true` (your always-on host) auto-introduces new
 peers to the rest, so in practice you mostly only add the new ID in one place.
 
 **Security:** Device IDs are public (safe in git). The secret is each machine's
-`~/Library/Application Support/Syncthing/key.pem` (macOS) — never commit it, or a
-cloner would *become* that device. Same for `sync.encryption_secret` if you set
-one (keep it in `local.nix`).
+Syncthing `key.pem` — `~/Library/Application Support/Syncthing/` on macOS,
+`~/.local/state/syncthing/` (or `$XDG_STATE_HOME/syncthing`) on Linux — never
+commit it, or a cloner would *become* that device. Same for
+`sync.encryption_secret` if you set one (keep it in `local.nix`).
 
 ### Caveats
 
