@@ -102,6 +102,7 @@
       bind r source-file ${config.xdg.configHome}/tmux/tmux.conf \; display-message "Config reloaded!"
       bind ? display-popup -E -w 80% -h 60% "tmux list-keys | bat -l bash --color=always --style=plain | fzf --ansi"
       bind t display-popup -E -w 30% -h 40% "tmux-launcher"
+      bind T display-popup -E -w 90% -h 90% "taskwarrior-tui"
       bind C-l send-keys 'clear' Enter
 
       # --- resurrect / continuum (options consumed by the nix-managed plugins) ---
