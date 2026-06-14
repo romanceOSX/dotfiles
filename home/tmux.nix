@@ -73,7 +73,14 @@
       bind -r p previous-window
 
       # --- Sessions ---
-      bind f run-shell "tmux neww tmux-sessionizer"
+      # f acts as a prefix for a "find session" sub-menu (e.g. <prefix>f p, <prefix>f n).
+      # Each entry fzf-picks a subdir of the given folder and opens it via tmux-sessionizer.
+      # -L on find so symlinked folders (e.g. ~/notes -> iCloud) are followed.
+      bind f switch-client -T sessionizer
+      bind -T sessionizer p run-shell "tmux neww 'tmux-sessionizer \"$(find -L ~/git -mindepth 1 -maxdepth 1 -type d | fzf)\"'"
+      bind -T sessionizer g run-shell "tmux neww 'tmux-sessionizer \"$(find -L ~/git -mindepth 1 -maxdepth 1 -type d | fzf)\"'"
+      bind -T sessionizer n run-shell "tmux neww 'tmux-sessionizer \"$(find -L ~/notes -mindepth 1 -maxdepth 1 -type d | fzf)\"'"
+      bind -T sessionizer f run-shell "tmux neww tmux-sessionizer"
       bind N command-prompt -p "Session name:" "new-session -s '%%'"
       bind -r ( switch-client -p
       bind -r ) switch-client -n
