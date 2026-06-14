@@ -56,6 +56,33 @@ and **Syncthing replicates that dir** (not the live DB) across machines.
   Windows-synced folder, e.g.
   `ln -s /mnt/c/Users/<you>/task-sync ~/.local/share/task-sync`.
 
+## Adding a new machine to the sync (read this when pulling on a new box)
+
+Cloning this repo gives a machine the **tools and settings only** — not your
+identity and not your tasks. Each machine generates its own Syncthing identity
+(`key.pem`, kept locally, **never committed**); the public **Device IDs** of all
+machines are declared in `home/taskwarrior.nix` (`syncthingDevices`). The same
+list runs everywhere, so every machine already knows its peers.
+
+To bring a new machine into the mesh:
+
+1. `home-manager switch` on the new machine (installs everything; Syncthing
+   generates its identity on first run).
+2. Get its Device ID: `syncthing --device-id`.
+3. Add it to `syncthingDevices` in `home/taskwarrior.nix`, commit, and **push**.
+4. `git pull` + `home-manager switch` on the *other* machines so they learn the
+   new peer (the declared list is the source of truth — GUI-added devices are
+   reverted on activation).
+5. First `task sync` on the new machine pulls your whole task list.
+
+The machine marked `introducer = true` (your always-on host) auto-introduces new
+peers to the rest, so in practice you mostly only add the new ID in one place.
+
+**Security:** Device IDs are public (safe in git). The secret is each machine's
+`~/Library/Application Support/Syncthing/key.pem` (macOS) — never commit it, or a
+cloner would *become* that device. Same for `sync.encryption_secret` if you set
+one (keep it in `local.nix`).
+
 ### Caveats
 
 - **`task undo` is effectively disabled.** Syncing discards undo history, and we

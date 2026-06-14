@@ -11,6 +11,25 @@ let
   # re-merges on the next sync, so you don't lose tasks the way a raw-db file
   # conflict would. No external service, no cloud, no encryption secret required.
   syncDir = "${config.xdg.dataHome}/task-sync";
+
+  # Public Syncthing Device IDs of every machine in your sync mesh. These are
+  # PUBLIC and safe to commit — the only secret is each machine's key.pem, which
+  # stays machine-local and is NEVER in this repo. The SAME list runs on every
+  # machine: each treats the others as peers (and ignores its own entry), so a
+  # machine that pulls this config already knows who its peers are.
+  #
+  # To add a machine: run `syncthing --device-id` on it, add it below, then push
+  # + pull + `home-manager switch` everywhere. Placeholders are commented because
+  # an invalid id would break Syncthing's config. See docs/taskwarrior.md.
+  syncthingDevices = {
+    osx-mac.id = "3BEN5LQ-MRXHMAL-764ULF7-R3B2GXO-5SSUXVX-IGBFP7Q-2IBCZZO-3DGDLAY";
+
+    # windows-host = {
+    #   id = "XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX";
+    #   introducer = true; # always-on hub: auto-introduces new peers to the rest
+    # };
+    # work.id = "XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX";
+  };
 in
 {
   # ===========================================================================
@@ -99,12 +118,18 @@ in
   # ---------------------------------------------------------------------------
   services.syncthing = lib.mkIf pkgs.stdenv.isDarwin {
     enable = true;
-    settings.folders."taskwarrior-sync" = {
-      path = syncDir;
-      devices = [ ]; # add your Windows device name here once paired
-      versioning = {
-        type = "simple";
-        params.keep = "10";
+    # overrideDevices/overrideFolders default to true, so this declared set is
+    # the source of truth — devices/folders added via the GUI get reverted on
+    # activation. Keep all machines in syncthingDevices above.
+    settings = {
+      devices = syncthingDevices;
+      folders."taskwarrior-sync" = {
+        path = syncDir;
+        devices = builtins.attrNames syncthingDevices; # share with every declared peer
+        versioning = {
+          type = "simple";
+          params.keep = "10";
+        };
       };
     };
   };
