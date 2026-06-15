@@ -1,0 +1,50 @@
+#!/usr/bin/env sh
+
+# Installs a LaunchDaemon that runs the Nix-provided tailscaled at boot,
+# pointed at the stable ~/.nix-profile symlink so `home-manager switch`
+# upgrades don't break the daemon (unlike pointing at /nix/store/... directly).
+# Requires sudo. Run once per machine.
+
+set -e
+
+TAILSCALED="$HOME/.nix-profile/bin/tailscaled"
+PLIST=/Library/LaunchDaemons/com.tailscale.tailscaled.plist
+
+if [ ! -x "$TAILSCALED" ]; then
+    echo "error: $TAILSCALED not found (is tailscale in home.packages?)" >&2
+    exit 1
+fi
+
+sudo mkdir -p /var/lib/tailscale
+
+sudo tee "$PLIST" >/dev/null <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tailscale.tailscaled</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$TAILSCALED</string>
+        <string>--state=/var/lib/tailscale/tailscaled.state</string>
+        <string>--socket=/var/run/tailscaled.socket</string>
+        <string>--port=41641</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/var/log/tailscaled.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/tailscaled.log</string>
+</dict>
+</plist>
+EOF
+
+sudo launchctl bootout system "$PLIST" 2>/dev/null || true
+sudo launchctl bootstrap system "$PLIST"
+
+echo "tailscaled daemon installed and started."
+echo "Run 'sudo tailscale up' to authenticate this machine."

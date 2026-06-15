@@ -21,5 +21,9 @@
       source = ../.local/bin/tmux-launcher;
       executable = true;
     };
+    ".local/bin/install-tailscaled-daemon" = {
+      source = ../.local/bin/install-tailscaled-daemon;
+      executable = true;
+    };
   };
 }
