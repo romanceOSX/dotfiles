@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+
+# Enables Wake-on-LAN so this Mac can be woken over the network (incl. via
+# Tailscale's "Wake" feature from another tailnet device on the same LAN).
+# Requires sudo. Run once per machine; settings persist across reboots.
+
+set -e
+
+# Wake for network access (the core WoL switch).
+sudo pmset -a womp 1
+
+# Disable deep "standby" sleep. After ~1h of normal sleep macOS hibernates
+# to standby, powering down the NIC — WoL stops working until the Mac is
+# touched again. Disabling standby keeps the network interface responsive
+# at the cost of slightly higher power draw during long sleeps.
+sudo pmset -a standby 0
+
+# Keep network connections alive while asleep (helps the NIC stay reachable).
+sudo pmset -a tcpkeepalive 1
+
+echo "Wake-on-LAN enabled. Current power settings:"
+pmset -g | grep -iE "womp|standby|tcpkeepalive"
+echo
+echo "This Mac's en0 MAC address (for 'wakeonlan' from a LAN peer):"
+ifconfig en0 | awk '/ether/ {print $2}'

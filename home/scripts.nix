@@ -25,5 +25,9 @@
       source = ../.local/bin/install-tailscaled-daemon;
       executable = true;
     };
+    ".local/bin/enable-wake-on-lan" = {
+      source = ../.local/bin/enable-wake-on-lan;
+      executable = true;
+    };
   };
 }
