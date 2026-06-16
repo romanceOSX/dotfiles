@@ -25,6 +25,14 @@
       source = ../.local/bin/install-tailscaled-daemon;
       executable = true;
     };
+    ".local/bin/wsl-sync-dns" = {
+      source = ../.local/bin/wsl-sync-dns;
+      executable = true;
+    };
+    ".local/bin/fix-sudo-path" = {
+      source = ../.local/bin/fix-sudo-path;
+      executable = true;
+    };
     ".local/bin/enable-wake-on-lan" = {
       source = ../.local/bin/enable-wake-on-lan;
       executable = true;
