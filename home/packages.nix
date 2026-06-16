@@ -23,7 +23,7 @@
             clippy
             rust-analyzer
             clang # provides clang++ (clang++ -std=c++20 alias)
-            clang-tools # provides clangd (matches .clangd)
+            clang-tools # provides clangd (config in home/programs.nix → ~/.config/clangd)
             tree-sitter # CLI used by nvim-treesitter (main branch) to build parsers
             vimPlugins.nvim-treesitter # nvim-treesitter plugin package
 

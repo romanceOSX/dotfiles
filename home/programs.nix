@@ -1,7 +1,7 @@
 { config, ... }:
 {
   # ---------------------------------------------------------------------------
-  # lazygit — pastel-rainbow theme (translated from .config/lazygit/config.yml)
+  # lazygit — pastel-rainbow theme
   # ---------------------------------------------------------------------------
   programs.lazygit = {
     enable = true;
@@ -62,6 +62,20 @@
   # classes like `build`) is truecolor and nothing falls back to a 16-colour
   # terminal slot. Complements EZA_COLORS/LS_COLORS in shell.nix.
   xdg.configFile."eza/theme.yml".source = ./eza-theme.yml;
+
+  # clangd — user-global config (migrated from the repo's .clangd). clangd reads
+  # per-user config from $XDG_CONFIG_HOME/clangd/config.yaml (same YAML schema as
+  # a project-local .clangd); ~/.clangd is NOT a clangd config path, so deploying
+  # here is what actually makes clangd pick it up. Forces C++23 on C++ TUs.
+  xdg.configFile."clangd/config.yaml".text = ''
+    CompileFlags:
+      # generic config
+
+    If:
+      Language: C++
+    CompileFlags:
+      Add: [-std=c++23]
+  '';
 
   # ---------------------------------------------------------------------------
   # git — identity (no .gitconfig was tracked in the repo; adjust as needed)
