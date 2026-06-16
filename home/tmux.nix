@@ -8,13 +8,12 @@ let
   fzfNav = "--bind=ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept";
 in
 {
-  # Link sessionizer.toml so it's at the XDG path the menu script expects.
-  # Out-of-store symlink straight to the repo file (like the nvim config), so
-  # editing home/tmux-sessionizer.toml takes effect at the next <prefix>f
-  # keypress — no `home-manager switch`, no tmux reload. Ties the link to the
-  # repo living at ~/git/dotfiles.
-  xdg.configFile."tmux/sessionizer.toml".source =
-    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/dotfiles/home/tmux-sessionizer.toml";
+  # Ship the sessionizer default/example to ~/.config/tmux/sessionizer.toml.example
+  # (read-only, in-store). The <prefix>f menu falls back to it when no custom
+  # config exists. To customize, copy it to ~/.config/tmux/sessionizer.toml
+  # (machine-local, not nix-managed) — the menu prefers that copy and reads it
+  # fresh on every keypress, so edits are live with no switch / no tmux reload.
+  xdg.configFile."tmux/sessionizer.toml.example".source = ./tmux-sessionizer.toml.example;
   # ---------------------------------------------------------------------------
   # tmux (translated from .tmux.conf)
   #

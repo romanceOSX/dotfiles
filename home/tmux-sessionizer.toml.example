@@ -1,0 +1,40 @@
+# tmux-sessionizer directory configuration (DEFAULT / EXAMPLE)
+# ────────────────────────────────────────────────────────────
+# This is the shipped default, deployed read-only to
+#   ~/.config/tmux/sessionizer.toml.example
+# The <prefix>f menu uses it ONLY when no custom config exists.
+#
+# To customize, copy it to a writable config the menu prefers:
+#   cp ~/.config/tmux/sessionizer.toml.example ~/.config/tmux/sessionizer.toml
+# then edit that copy. It is read fresh at every <prefix>f keypress, so
+# changes take effect immediately — no home-manager switch, no tmux reload.
+# (Your copy lives outside the dotfiles repo, like local.nix — machine-local.)
+#
+# Each [[entries]] block maps a menu key to one or more root directories.
+#
+#   key   — single character used in the <prefix>f session-finder menu
+#   label — display name shown in the menu
+#   dirs  — one or more parent directories to browse (tilde is supported)
+#
+# Use dirs=["*"] to create a "search all" entry that expands to every
+# directory defined in every other entry. The key and label are configurable.
+
+[[entries]]
+key   = "g"
+label = "git"
+dirs  = ["~/git", "/mnt/c/git"]
+
+[[entries]]
+key   = "n"
+label = "notes"
+dirs  = ["~/notes"]
+
+[[entries]]
+key   = "h"
+label = "home"
+dirs  = ["~"]
+
+[[entries]]
+key   = "f"
+label = "all"
+dirs  = ["*"]

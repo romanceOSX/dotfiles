@@ -4,9 +4,13 @@
 # the selected category. Navigate the menu with arrow keys or letter shortcuts.
 # Called from tmux via: bind f run-shell "~/.local/bin/tmux-sessionizer-menu"
 
-CONF="${XDG_CONFIG_HOME:-$HOME/.config}/tmux/sessionizer.toml"
+# Prefer the user's custom config; fall back to the shipped default/example.
+# Customize by copying the .example to sessionizer.toml (see its header).
+XDG="${XDG_CONFIG_HOME:-$HOME/.config}"
+CONF="$XDG/tmux/sessionizer.toml"
+[[ -f "$CONF" ]] || CONF="$XDG/tmux/sessionizer.toml.example"
 
-[[ ! -f "$CONF" ]] && { tmux display-message "sessionizer.toml not found: $CONF"; exit 1; }
+[[ ! -f "$CONF" ]] && { tmux display-message "No sessionizer config found ($CONF)"; exit 1; }
 
 json=$(python3 -c "
 import tomllib, json, sys
