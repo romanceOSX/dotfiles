@@ -85,6 +85,14 @@
           system = "x86_64-linux";
           inherit (local) username homeDirectory;
         };
+
+        # Raspberry Pi (64-bit Raspberry Pi OS / Debian Bookworm, aarch64).
+        # Identity is hardcoded so the headless Pi needs no local.nix.
+        "pi" = mkHome {
+          system = "aarch64-linux";
+          username = "love";
+          homeDirectory = "/home/love";
+        };
       };
     };
 }
