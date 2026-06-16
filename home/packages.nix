@@ -31,11 +31,14 @@
             lua-language-server
             pyright
             bash-language-server # `bashls` — also attached to zsh (see nvim lsp.lua)
+            marksman # `marksman` — markdown LSP: link nav, heading completion, rename
 
             # --- formatters / linters ---
             stylua
             black
             python3Packages.isort
+            prettier # markdown formatter (conform format-on-save, see nvim lsp.lua)
+            mdformat # markdown formatter — conform fallback when prettier is absent
 
             python3 # for the python/pip aliases
             python3Packages.tkinter
@@ -89,6 +92,9 @@
             # `ip` shim wrapping ifconfig/netstat/route. Partial coverage of the
             # real iproute2 (handles `ip addr`/`route`/`link`; no `ss`).
             pkgs.iproute2mac
+            # pngpaste — dumps the clipboard image to a file; used by img-clip.nvim
+            # (<leader>p) to paste screenshots into markdown. See nvim imgclip.lua.
+            pkgs.pngpaste
         ]
         ++ lib.optionals pkgs.stdenv.isLinux [
             # macOS ships these; on Linux pull them in for the scripts/clipboard yank.
