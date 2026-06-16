@@ -2,6 +2,10 @@
 let
   resurrectDir = "${config.xdg.dataHome}/tmux/resurrect";
   keepLastSnapshots = 10;
+  # Shared fzf navigation contract — see docs/keybindings.md. tmux popups run
+  # fzf via `sh -c`, which doesn't reliably inherit FZF_DEFAULT_OPTS from the
+  # (possibly frozen) tmux server env, so every popup picker passes it inline.
+  fzfNav = "--bind=ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept";
 in
 {
   # Link sessionizer.toml so it's at the XDG path the menu script expects.
@@ -80,7 +84,7 @@ in
       set-option -g pane-border-style "fg=#2F2B30,bg=default"
 
       # --- Windows ---
-      bind w display-popup -E "tmux list-windows -F '#{window_index}: #{window_name}' | fzf --reverse | cut -d: -f1 | xargs tmux select-window -t"
+      bind w display-popup -E "tmux list-windows -F '#{window_index}: #{window_name}' | fzf --reverse ${fzfNav} | cut -d: -f1 | xargs tmux select-window -t"
       bind Tab last-window
       bind -r n next-window
       bind -r p previous-window
@@ -106,7 +110,7 @@ in
 
       # --- Utilities ---
       bind r source-file ${config.xdg.configHome}/tmux/tmux.conf \; display-message "Config reloaded!"
-      bind ? display-popup -E -w 80% -h 60% "tmux list-keys | bat -l bash --color=always --style=plain | fzf --ansi"
+      bind ? display-popup -E -w 80% -h 60% "tmux list-keys | bat -l bash --color=always --style=plain | fzf --ansi ${fzfNav}"
       bind t display-popup -E -w 30% -h 40% "tmux-launcher"
       bind T display-popup -E -w 90% -h 90% "taskwarrior-tui"
       bind C-l send-keys 'clear' Enter

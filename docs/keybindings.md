@@ -1,48 +1,67 @@
 # Navigation schema
 
-Two types of interactive menus exist in this repo; each has its own contract.
+This repo defines **one** common navigation schema. It concerns how the user
+interacts with any menu — the shortcuts, not the underlying widget. Every menu
+in the dotfiles (fzf pickers, custom scripts, tmux popups) should follow it so
+the interaction is identical everywhere.
 
----
+There are two menu *categories* by implementation (fzf-based pickers and tmux
+native menus), but they share this single interaction schema.
 
-## fzf pickers
+## The schema
 
-Applies to all fzf-based pickers: shell history, tab completion, zoxide `cdi`,
-and tmux popup pickers (`<prefix>w`, `<prefix>?`).
-Enforced via `FZF_DEFAULT_OPTS` in `home/shell.nix`; fzf-tab gets the same
-flags via `zstyle ':fzf-tab:*' fzf-flags`.
+| Key                                  | Action    |
+| ------------------------------------ | --------- |
+| `ctrl+j` / `ctrl+n` / down arrow key | Move down |
+| `ctrl+k` / `ctrl+p` / up arrow key   | Move up   |
+| `ctrl+c` / `esc`                     | Cancel    |
+| `tab` / `ctrl+y`                     | Accept    |
+| `enter`                              | Submit    |
 
-| Key | Action |
-|-----|--------|
-| `ctrl+j` / `ctrl+n` | Move down |
-| `ctrl+k` / `ctrl+p` | Move up |
-| `ctrl+c` / `esc` | Cancel |
-| `tab` / `ctrl+y` | Accept |
-| `enter` | Submit |
+**Avoid raw letters.** Standalone letter keys (i.e. without `ctrl`) should not
+be used as menu controls — every binding above is either a `ctrl`-chord, a
+named key, or an arrow.
 
-Arrow keys always work as a fallback.
+## How it is enforced
 
-**Implementation note:** fzf instances running inside a bare `bash -c` tmux
-popup don't inherit `FZF_DEFAULT_OPTS` from zsh — pass `--bind` explicitly:
-```
---bind=ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept
-```
+- **Shell fzf pickers** (history `^R`, `^T`, zoxide `cdi`): inherit the schema
+  via `FZF_DEFAULT_OPTS`, set by `programs.fzf.defaultOptions` in
+  `home/shell.nix`.
+- **Tab completion** (`fzf-tab`): gets the same binds via
+  `zstyle ':fzf-tab:*' fzf-flags` in `home/shell.nix`.
+- **tmux popup pickers** (`<prefix>w`, `<prefix>?`) and **script pickers**
+  (`tmux-sessionizer`, `tmux-launcher`): a tmux popup runs fzf via `sh -c`,
+  which does not reliably inherit `FZF_DEFAULT_OPTS` from the (possibly frozen)
+  tmux server environment — so each passes the binds inline. The canonical
+  string, kept identical across all of them, is:
 
-`tab:accept` removes multi-select toggle. Add a dedicated `FZF_*_OPTS` if a
-future picker needs `-m`.
+  ```
+  --bind=ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept
+  ```
 
----
+  In `home/tmux.nix` it lives in the `fzfNav` let-binding; the scripts define
+  it as `FZF_NAV`.
 
-## tmux display-menus
+`ctrl+c`/`esc` (cancel) and `enter` (submit) are fzf defaults, so they need no
+explicit binding. `tab:accept` removes fzf's multi-select toggle — fine for all
+current pickers; a future `-m` picker would need its own override.
 
-Applies to native tmux menus: `<prefix>f` session-finder.
-`display-menu` navigation is fixed by tmux and cannot be rebound.
+## New menus
 
-| Key | Action |
-|-----|--------|
-| `↑` / `↓` (or `k` / `j`) | Move up / down |
-| `esc` / `q` | Cancel |
-| `enter` | Select highlighted entry |
-| Letter shortcut | Jump directly to that entry |
+Any new menu must follow the schema. If it is fzf-based, reuse the bind string
+above (inline for popups/scripts; otherwise it is inherited). Do not introduce
+raw-letter controls.
+
+## Known exception: tmux `display-menu`
+
+`<prefix>f` (the session-finder) uses tmux's native `display-menu`. tmux 3.6
+has **no configurable key table for menus** — navigation (arrows, `enter`,
+`esc`) and the per-entry letter mnemonics are hardcoded by tmux and cannot be
+rebound. It therefore cannot honor the full schema (no `ctrl+j/k`, no
+`tab`/`ctrl+y` accept) and inherently uses raw-letter shortcuts for its
+entries. This is a tmux limitation, not a choice; it is the only menu in the
+repo exempt from the schema. The arrow keys, `esc`, and `enter` it does support
+still match the schema.
 
 ---
 
@@ -52,10 +71,10 @@ Prefix: `C-a`
 
 | Key | Action |
 |-----|--------|
-| `<prefix> f` | Session-finder (fzf — follows navigation contract) |
-| `<prefix> w` | Window picker (fzf — follows navigation contract) |
-| `<prefix> ?` | Searchable key list (fzf — follows navigation contract) |
-| `<prefix> t` | Session launcher popup |
+| `<prefix> f` | Session-finder (display-menu — see exception above) |
+| `<prefix> w` | Window picker (fzf — follows schema) |
+| `<prefix> ?` | Searchable key list (fzf — follows schema) |
+| `<prefix> t` | Command launcher popup (fzf — follows schema) |
 | `<prefix> T` | taskwarrior-tui popup |
 | `<prefix> i` | tmux / continuum info popup |
 | `<prefix> r` | Reload tmux config |

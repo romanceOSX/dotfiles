@@ -2,7 +2,11 @@
 
 current_path=$(tmux display-message -p '#{pane_current_path}')
 
-cmd=$(bash -c 'compgen -c | sort -u | fzf --prompt="run > "')
+# Shared fzf navigation contract — see docs/keybindings.md. Passed inline
+# because this runs in a tmux popup that may not inherit FZF_DEFAULT_OPTS.
+FZF_NAV="--bind=ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept"
+
+cmd=$(bash -c "compgen -c | sort -u | fzf --prompt='run > ' $FZF_NAV")
 
 [ -z "$cmd" ] && exit 0
 
