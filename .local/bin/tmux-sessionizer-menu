@@ -25,6 +25,7 @@ done < <(jq -r '
 menu_args=()
 
 while IFS= read -r entry; do
+    key=$(jq -r '.key'   <<< "$entry")
     label=$(jq -r '.label' <<< "$entry")
 
     dirs=()
