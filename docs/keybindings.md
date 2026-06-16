@@ -1,38 +1,57 @@
-# Keybindings
+# Navigation schema
 
-## fzf (all pickers)
+All interactive menus and pickers in this repo follow the same navigation
+contract. New menus should be implemented to match it.
 
-Applies everywhere fzf is used: shell history (`^R`), tab completion
-(`fzf-tab`), zoxide's `cdi`, and all tmux popup pickers.
-Configured via `FZF_DEFAULT_OPTS` in `home/shell.nix`.
-
-### Navigation (selecting from the entry list)
+## Universal navigation contract
 
 | Key | Action |
 |-----|--------|
-| `ctrl+j` / `ctrl+k` | Move down / up |
-| `ctrl+n` / `ctrl+p` | Move down / up (alternate) |
+| `ctrl+j` / `ctrl+n` | Move down the list |
+| `ctrl+k` / `ctrl+p` | Move up the list |
 | `ctrl+c` / `esc` | Cancel / dismiss |
-| `tab` / `ctrl+y` | Accept selection (confirm without submitting) |
-| `enter` | Submit selection |
+| `tab` / `ctrl+y` | Accept (confirm the highlighted entry) |
+| `enter` | Submit (confirm and execute) |
 
-### Notes
+Arrow keys always work as a fallback.
 
-- `tab` is rebound from multi-select toggle to accept — if a future picker
-  needs multi-select (`fzf -m`), add a dedicated `FZF_*_OPTS` override for it.
-- fzf-tab receives the same bindings via `zstyle ':fzf-tab:*' fzf-flags`.
+## Where it applies
+
+| Menu | Implementation | Config |
+|------|---------------|--------|
+| `<prefix>f` session-finder | fzf via popup | `~/.config/tmux/sessionizer.toml` |
+| `<prefix>w` window picker | fzf via popup | inline in `home/tmux.nix` |
+| `<prefix>?` key list | fzf via popup | inline in `home/tmux.nix` |
+| Shell history (`^R`) | fzf widget | `programs.fzf` in `home/shell.nix` |
+| Tab completion | fzf-tab | `zstyle ':fzf-tab:*'` in `home/shell.nix` |
+| `cdi` (zoxide) | fzf widget | `programs.zoxide` in `home/shell.nix` |
+| `^T` file picker | fzf widget | `programs.fzf` in `home/shell.nix` |
+
+## Implementation
+
+The contract is enforced via `FZF_DEFAULT_OPTS` (set by `programs.fzf.defaultOptions`
+in `home/shell.nix`), which all fzf instances inherit. Menus that run inside
+tmux popups as a bare `bash -c` subprocess (where `FZF_DEFAULT_OPTS` is not
+inherited from zsh) must pass `--bind` explicitly — see `tmux-sessionizer-menu`.
+
+```
+--bind=ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept
+```
+
+`tab:accept` removes multi-select toggle. If a future picker needs `-m`,
+add a dedicated `FZF_*_OPTS` variable for that invocation.
 
 ---
 
-## tmux
+## tmux prefix bindings
 
 Prefix: `C-a`
 
 | Key | Action |
 |-----|--------|
-| `<prefix> f` | Session-finder menu (reads `~/.config/tmux/sessionizer.toml`) |
-| `<prefix> w` | Window picker (fzf) |
-| `<prefix> ?` | Searchable key list (fzf) |
+| `<prefix> f` | Session-finder (fzf — follows navigation contract) |
+| `<prefix> w` | Window picker (fzf — follows navigation contract) |
+| `<prefix> ?` | Searchable key list (fzf — follows navigation contract) |
 | `<prefix> t` | Session launcher popup |
 | `<prefix> T` | taskwarrior-tui popup |
 | `<prefix> i` | tmux / continuum info popup |

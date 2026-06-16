@@ -1,25 +1,11 @@
 #!/usr/bin/env bash
-# Build and show the tmux-sessionizer directory menu.
-#
-# Reads ~/.config/tmux/sessionizer.toml and calls tmux display-menu.
-# Re-read on every keypress — edits take effect without reloading tmux.
-#
-# Parsing: python3 (tomllib, stdlib since 3.11) converts TOML → JSON;
-# jq handles the rest. Both are already in the nix package list.
-#
-# Config format: [[entries]] blocks with key, label, dirs=[...].
-# Use dirs=["*"] for a "search all" entry that expands to every dir
-# defined in every other entry.
-#
-# Navigation inside the menu: arrow keys, or j/k (vi mode is on).
+# Session-finder: reads ~/.config/tmux/sessionizer.toml, shows categories in
+# an fzf picker, then browses the selected dirs with tmux-sessionizer.
 # Called from tmux via: bind f run-shell "~/.local/bin/tmux-sessionizer-menu"
 
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/tmux/sessionizer.toml"
 
-if [[ ! -f "$CONF" ]]; then
-    tmux display-message "sessionizer.toml not found: $CONF"
-    exit 1
-fi
+[[ ! -f "$CONF" ]] && { tmux display-message "sessionizer.toml not found: $CONF"; exit 1; }
 
 json=$(python3 -c "
 import tomllib, json, sys
@@ -27,8 +13,7 @@ with open(sys.argv[1], 'rb') as f:
     print(json.dumps(tomllib.load(f)))
 " "$CONF") || { tmux display-message "Failed to parse $CONF"; exit 1; }
 
-# Pass 1: collect every dir from non-wildcard entries (for '*' expansion)
-# (while-read instead of readarray for bash 3.2 compat on macOS)
+# Collect every dir from non-wildcard entries (used to expand '*')
 all_dirs=()
 while IFS= read -r line; do
     all_dirs+=("$line")
@@ -36,12 +21,11 @@ done < <(jq -r '
     .entries[] | select(.dirs | map(. == "*") | any | not) | .dirs[]
 ' <<< "$json")
 
-# Pass 2: build display-menu args
-menu_args=()
-seen_wildcard=0
+# Build a temp file of "label<TAB>-p dir1 dir2" lines — one per entry
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
 
 while IFS= read -r entry; do
-    key=$(jq -r '.key'   <<< "$entry")
     label=$(jq -r '.label' <<< "$entry")
 
     dirs=()
@@ -49,23 +33,22 @@ while IFS= read -r entry; do
         dirs+=("$d")
     done < <(jq -r '.dirs[]' <<< "$entry")
 
-    if [[ "${dirs[0]}" == "*" ]]; then
-        dirs=("${all_dirs[@]}")
-        (( seen_wildcard )) || menu_args+=("")   # separator
-        seen_wildcard=1
-    fi
+    [[ "${dirs[0]}" == "*" ]] && dirs=("${all_dirs[@]}")
 
-    dir_str="${dirs[0]}"
-    for d in "${dirs[@]:1}"; do dir_str+=", $d"; done
-
-    # Single -p flag; all dirs follow as positional args.
     p_args="-p"
     for d in "${dirs[@]}"; do p_args+=" $d"; done
 
-    menu_args+=("${label}  (${dir_str})" "$key" "display-popup -E 'tmux-sessionizer ${p_args}'")
+    printf '%s\t%s\n' "$label" "$p_args" >> "$tmp"
 done < <(jq -c '.entries[]' <<< "$json")
 
-exec tmux display-menu \
-    -T "#[align=centre,fg=#C58EA7]󰍉 sessionizer " \
-    -x C -y C \
-    "${menu_args[@]}"
+# Show categories in fzf (inside a popup so fzf has a tty), then hand off
+# to tmux-sessionizer which runs a second fzf for dir/session picking.
+# FZF_DEFAULT_OPTS is not set in this bash subprocess, so bind explicitly.
+FZF_BIND="ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept"
+
+tmux display-popup -E -w 40% -h 40% "bash -c '
+    sel=\$(cut -f1 \"$tmp\" | fzf --prompt=\"󰍉  \" --bind=\"$FZF_BIND\" --no-info)
+    [[ -z \"\$sel\" ]] && exit
+    args=\$(grep -F \"\$sel\$(printf \"\\\t\")\" \"$tmp\" | head -1 | cut -f2-)
+    exec tmux-sessionizer \$args
+'"
