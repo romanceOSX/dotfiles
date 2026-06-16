@@ -1,14 +1,18 @@
 #!/usr/bin/env sh
 
-# Installs a LaunchDaemon that runs the Nix-provided tailscaled at boot,
-# pointed at the stable ~/.nix-profile symlink so `home-manager switch`
-# upgrades don't break the daemon (unlike pointing at /nix/store/... directly).
-# Requires sudo. Run once per machine.
+# Installs a boot-time service that runs the Nix-provided tailscaled, pointed at
+# the stable ~/.nix-profile symlink so `home-manager switch` upgrades don't break
+# the daemon (unlike pointing at /nix/store/... directly).
+#
+#   macOS  -> /Library/LaunchDaemons/com.tailscale.tailscaled.plist  (launchd)
+#   Linux  -> /etc/systemd/system/tailscaled.service                 (systemd)
+#
+# Requires sudo. Run once per machine. After install, run `tailscale up`.
 
 set -e
 
 TAILSCALED="$HOME/.nix-profile/bin/tailscaled"
-PLIST=/Library/LaunchDaemons/com.tailscale.tailscaled.plist
+TAILSCALE="$HOME/.nix-profile/bin/tailscale"
 
 if [ ! -x "$TAILSCALED" ]; then
     echo "error: $TAILSCALED not found (is tailscale in home.packages?)" >&2
@@ -17,7 +21,10 @@ fi
 
 sudo mkdir -p /var/lib/tailscale
 
-sudo tee "$PLIST" >/dev/null <<EOF
+install_macos() {
+    PLIST=/Library/LaunchDaemons/com.tailscale.tailscaled.plist
+
+    sudo tee "$PLIST" >/dev/null <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -43,8 +50,71 @@ sudo tee "$PLIST" >/dev/null <<EOF
 </plist>
 EOF
 
-sudo launchctl bootout system "$PLIST" 2>/dev/null || true
-sudo launchctl bootstrap system "$PLIST"
+    sudo launchctl bootout system "$PLIST" 2>/dev/null || true
+    sudo launchctl bootstrap system "$PLIST"
+}
+
+install_systemd() {
+    if [ ! -d /run/systemd/system ]; then
+        echo "error: systemd is not running (PID 1 is not systemd)." >&2
+        echo "On WSL, add the following to /etc/wsl.conf:" >&2
+        echo "    [boot]" >&2
+        echo "    systemd=true" >&2
+        echo "then restart the distro ('wsl --shutdown') and re-run this script." >&2
+        exit 1
+    fi
+
+    UNIT=/etc/systemd/system/tailscaled.service
+
+    sudo tee "$UNIT" >/dev/null <<EOF
+[Unit]
+Description=Tailscale node agent
+Documentation=https://tailscale.com/kb/
+After=network-pre.target
+Wants=network-pre.target
+
+[Service]
+ExecStart=$TAILSCALED \\
+  --state=/var/lib/tailscale/tailscaled.state \\
+  --socket=/run/tailscale/tailscaled.sock \\
+  --port=41641
+RuntimeDirectory=tailscale
+RuntimeDirectoryMode=0755
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable tailscaled
+    sudo systemctl restart tailscaled
+
+    # Allow the invoking user to run `tailscale` without sudo. The CLI lives in
+    # the user's Nix profile, which root's secure_path PATH can't see — so set
+    # the operator now (using absolute paths) instead of needing `sudo tailscale`
+    # later. Wait briefly for the socket to come up after restart.
+    for _ in 1 2 3 4 5; do
+        [ -S /run/tailscale/tailscaled.sock ] && break
+        sleep 1
+    done
+    sudo "$TAILSCALE" set --operator="$(id -un)" 2>/dev/null \
+        || echo "note: could not set operator; run 'tailscale up' to finish setup." >&2
+}
+
+case "$(uname)" in
+    Darwin) install_macos ;;
+    Linux)  install_systemd ;;
+    *)
+        echo "error: unsupported OS '$(uname)'." >&2
+        exit 1
+        ;;
+esac
 
 echo "tailscaled daemon installed and started."
-echo "Run 'sudo tailscale up' to authenticate this machine."
+if [ "$(uname)" = "Linux" ]; then
+    echo "Run 'tailscale up' to authenticate this machine (no sudo needed)."
+else
+    echo "Run 'sudo tailscale up' to authenticate this machine."
+fi
