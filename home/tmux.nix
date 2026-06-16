@@ -9,9 +9,12 @@ let
 in
 {
   # Link sessionizer.toml so it's at the XDG path the menu script expects.
-  # Edit home/tmux-sessionizer.toml to change key→dirs mappings; changes
-  # take effect at the next keypress without reloading tmux.
-  xdg.configFile."tmux/sessionizer.toml".source = ./tmux-sessionizer.toml;
+  # Out-of-store symlink straight to the repo file (like the nvim config), so
+  # editing home/tmux-sessionizer.toml takes effect at the next <prefix>f
+  # keypress — no `home-manager switch`, no tmux reload. Ties the link to the
+  # repo living at ~/git/dotfiles.
+  xdg.configFile."tmux/sessionizer.toml".source =
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/dotfiles/home/tmux-sessionizer.toml";
   # ---------------------------------------------------------------------------
   # tmux (translated from .tmux.conf)
   #
