@@ -103,6 +103,7 @@ in
 
   programs.zsh.shellAliases = {
     tt = "taskwarrior-tui"; # jump straight into the TUI
+    todo = "taskwarrior-tui"; # alias for the TUI
     tn = "task next"; # what's next
     ta = "task add"; # quick capture
     tsync = "task sync"; # manual sync (auto-sync covers normal use)
