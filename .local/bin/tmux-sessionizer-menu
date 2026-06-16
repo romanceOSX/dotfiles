@@ -28,7 +28,11 @@ with open(sys.argv[1], 'rb') as f:
 " "$CONF") || { tmux display-message "Failed to parse $CONF"; exit 1; }
 
 # Pass 1: collect every dir from non-wildcard entries (for '*' expansion)
-readarray -t all_dirs < <(jq -r '
+# (while-read instead of readarray for bash 3.2 compat on macOS)
+all_dirs=()
+while IFS= read -r line; do
+    all_dirs+=("$line")
+done < <(jq -r '
     .entries[] | select(.dirs | map(. == "*") | any | not) | .dirs[]
 ' <<< "$json")
 
@@ -39,7 +43,11 @@ seen_wildcard=0
 while IFS= read -r entry; do
     key=$(jq -r '.key'   <<< "$entry")
     label=$(jq -r '.label' <<< "$entry")
-    readarray -t dirs < <(jq -r '.dirs[]' <<< "$entry")
+
+    dirs=()
+    while IFS= read -r d; do
+        dirs+=("$d")
+    done < <(jq -r '.dirs[]' <<< "$entry")
 
     if [[ "${dirs[0]}" == "*" ]]; then
         dirs=("${all_dirs[@]}")
@@ -51,7 +59,6 @@ while IFS= read -r entry; do
     for d in "${dirs[@]:1}"; do dir_str+=", $d"; done
 
     # Single -p flag; all dirs follow as positional args.
-    # The command runs through a shell via display-popup, so ~ is expanded.
     p_args="-p"
     for d in "${dirs[@]}"; do p_args+=" $d"; done
 

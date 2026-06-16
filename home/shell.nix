@@ -190,7 +190,7 @@
 
       # --- fzf-tab tuning (from .commonrc) ---
       zstyle ':completion:*' menu no
-      zstyle ':fzf-tab:*' fzf-flags --bind=tab:accept
+      zstyle ':fzf-tab:*' fzf-flags --bind=ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept
 
       # --- yazi: cd into the last dir on quit (the `y` wrapper from .commonrc) ---
       function y() {
@@ -240,15 +240,14 @@
   programs.fzf = {
     enable = true;
     enableZshIntegration = true; # ^R / ^T / ALT-C + ** completion
-    # Uniform navigation across EVERY fzf picker (set via FZF_DEFAULT_OPTS, which
-    # the widgets, fzf-tab and zoxide's `cdi` all inherit):
-    #   ^N next · ^P prev · ^Y/Tab/Enter confirm.
-    # ^N/^P/Enter are already fzf defaults; ^Y and Tab are the real changes.
+    # Unified navigation for EVERY fzf picker (FZF_DEFAULT_OPTS; inherited by
+    # fzf-tab, zoxide `cdi`, tmux popups, and all ad-hoc fzf invocations).
+    # See docs/keybindings.md for the full reference.
     # NOTE: tab:accept removes Tab's multi-select toggle — fine for all current
     # pickers (none use multi-select), but a future `-m` picker would need its
     # own FZF_*_OPTS to rebind Tab back to toggle.
     defaultOptions = [
-      "--bind=ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept"
+      "--bind=ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept"
     ];
   };
 
