@@ -39,6 +39,7 @@
   # ---------------------------------------------------------------------------
   programs.zsh = {
     enable = true;
+    dotDir = "${config.xdg.configHome}/zsh";
     enableCompletion = true; # runs compinit (needed by fzf-tab)
     defaultKeymap = "viins"; # `set -o vi`, start in insert mode
 
@@ -199,6 +200,36 @@
           IFS= read -r -d "" cwd < "$tmp"
           [ -n "$cwd" ] && [ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
           command rm -f -- "$tmp"
+      }
+
+      # --- daemons / ports: list running services (from .commonrc) ---
+      function daemons() {
+          if [ "$(uname)" = "Darwin" ]; then
+              echo "== launchd (user) =="
+              launchctl list | awk 'NR==1 || $1 != "-"'
+              echo
+              echo "== launchd (system) =="
+              sudo launchctl list 2>/dev/null | awk 'NR==1 || $1 != "-"'
+          elif command -v systemctl >/dev/null 2>&1; then
+              echo "== systemd (system) =="
+              systemctl list-units --type=service --state=running --no-pager
+              echo
+              echo "== systemd (user) =="
+              systemctl --user list-units --type=service --state=running --no-pager 2>/dev/null
+          else
+              echo "No systemd/launchd found; falling back to listening network services:"
+              ports
+          fi
+      }
+
+      function ports() {
+          if [ "$(uname)" = "Darwin" ]; then
+              sudo lsof -i -P -n | grep LISTEN
+          elif command -v ss >/dev/null 2>&1; then
+              ss -tulpn
+          else
+              sudo lsof -i -P -n | grep LISTEN
+          fi
       }
     '';
   };
