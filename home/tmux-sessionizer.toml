@@ -1,0 +1,33 @@
+# tmux-sessionizer directory configuration
+# ─────────────────────────────────────────
+# Each [[entries]] block maps a menu key to one or more root directories.
+#
+#   key   — single character used in the <prefix>f session-finder menu
+#   label — display name shown in the menu
+#   dirs  — one or more parent directories to browse (tilde is supported)
+#
+# Use dirs=["*"] to create a "search all" entry that expands to every
+# directory defined in every other entry. The key and label are configurable.
+#
+# The menu script reads this file at keypress time, so changes take effect
+# immediately without reloading tmux.
+
+[[entries]]
+key   = "g"
+label = "git"
+dirs  = ["~/git", "/mnt/c/git"]
+
+[[entries]]
+key   = "n"
+label = "notes"
+dirs  = ["~/notes"]
+
+[[entries]]
+key   = "h"
+label = "home"
+dirs  = ["~"]
+
+[[entries]]
+key   = "f"
+label = "all"
+dirs  = ["*"]

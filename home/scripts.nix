@@ -25,6 +25,10 @@
       source = ../.local/bin/install-tailscaled-daemon;
       executable = true;
     };
+    ".local/bin/tmux-sessionizer-menu" = {
+      source = ../.local/bin/tmux-sessionizer-menu;
+      executable = true;
+    };
     ".local/bin/wsl-sync-dns" = {
       source = ../.local/bin/wsl-sync-dns;
       executable = true;

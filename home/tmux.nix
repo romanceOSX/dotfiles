@@ -1,5 +1,13 @@
 { pkgs, config, ... }:
+let
+  resurrectDir = "${config.xdg.dataHome}/tmux/resurrect";
+  keepLastSnapshots = 10;
+in
 {
+  # Link sessionizer.toml so it's at the XDG path the menu script expects.
+  # Edit home/tmux-sessionizer.toml to change key→dirs mappings; changes
+  # take effect at the next keypress without reloading tmux.
+  xdg.configFile."tmux/sessionizer.toml".source = ./tmux-sessionizer.toml;
   # ---------------------------------------------------------------------------
   # tmux (translated from .tmux.conf)
   #
@@ -73,17 +81,10 @@
       bind -r p previous-window
 
       # --- Sessions ---
-      # <prefix>f opens a which-key-style menu (native display-menu) listing the
-      # session-finder keys and their actions, so the shortcuts are discoverable.
-      # Each entry fzf-browses a folder via tmux-sessionizer in a popup (which
-      # gives fzf a tty; -p makes the script follow symlinks like ~/notes).
-      bind f display-menu -T "#[align=centre,fg=#C58EA7]󰍉 sessionizer " -x C -y C \
-        "git    (~/git)"          g "display-popup -E 'tmux-sessionizer -p ~/git'" \
-        "git    (~/git)"          p "display-popup -E 'tmux-sessionizer -p ~/git'" \
-        "notes  (~/notes)"        n "display-popup -E 'tmux-sessionizer -p ~/notes'" \
-        "home   (~)"              h "display-popup -E 'tmux-sessionizer -p ~'" \
-        "" \
-        "all    (git + home + notes)" f "display-popup -E 'tmux-sessionizer'"
+      # <prefix>f opens a session-finder menu built from
+      # ~/.config/tmux/sessionizer.toml (key → dirs mappings).
+      # Navigate with j/k or arrows; press an entry key to jump directly.
+      bind f run-shell "~/.local/bin/tmux-sessionizer-menu"
 
       # Pastel styling for all display-menu popups (matches the nova status bar).
       set -g menu-style "bg=#191719,fg=#7E7480"

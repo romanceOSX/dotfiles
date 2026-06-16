@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Build and show the tmux-sessionizer directory menu.
+#
+# Reads ~/.config/tmux/sessionizer.toml and calls tmux display-menu.
+# Re-read on every keypress — edits take effect without reloading tmux.
+#
+# Parsing: python3 (tomllib, stdlib since 3.11) converts TOML → JSON;
+# jq handles the rest. Both are already in the nix package list.
+#
+# Config format: [[entries]] blocks with key, label, dirs=[...].
+# Use dirs=["*"] for a "search all" entry that expands to every dir
+# defined in every other entry.
+#
+# Navigation inside the menu: arrow keys, or j/k (vi mode is on).
+# Called from tmux via: bind f run-shell "~/.local/bin/tmux-sessionizer-menu"
+
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/tmux/sessionizer.toml"
+
+if [[ ! -f "$CONF" ]]; then
+    tmux display-message "sessionizer.toml not found: $CONF"
+    exit 1
+fi
+
+json=$(python3 -c "
+import tomllib, json, sys
+with open(sys.argv[1], 'rb') as f:
+    print(json.dumps(tomllib.load(f)))
+" "$CONF") || { tmux display-message "Failed to parse $CONF"; exit 1; }
+
+# Pass 1: collect every dir from non-wildcard entries (for '*' expansion)
+readarray -t all_dirs < <(jq -r '
+    .entries[] | select(.dirs | map(. == "*") | any | not) | .dirs[]
+' <<< "$json")
+
+# Pass 2: build display-menu args
+menu_args=()
+seen_wildcard=0
+
+while IFS= read -r entry; do
+    key=$(jq -r '.key'   <<< "$entry")
+    label=$(jq -r '.label' <<< "$entry")
+    readarray -t dirs < <(jq -r '.dirs[]' <<< "$entry")
+
+    if [[ "${dirs[0]}" == "*" ]]; then
+        dirs=("${all_dirs[@]}")
+        (( seen_wildcard )) || menu_args+=("")   # separator
+        seen_wildcard=1
+    fi
+
+    dir_str="${dirs[0]}"
+    for d in "${dirs[@]:1}"; do dir_str+=", $d"; done
+
+    # Single -p flag; all dirs follow as positional args.
+    # The command runs through a shell via display-popup, so ~ is expanded.
+    p_args="-p"
+    for d in "${dirs[@]}"; do p_args+=" $d"; done
+
+    menu_args+=("${label}  (${dir_str})" "$key" "display-popup -E 'tmux-sessionizer ${p_args}'")
+done < <(jq -c '.entries[]' <<< "$json")
+
+exec tmux display-menu \
+    -T "#[align=centre,fg=#C58EA7]󰍉 sessionizer " \
+    -x C -y C \
+    "${menu_args[@]}"
