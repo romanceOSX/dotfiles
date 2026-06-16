@@ -101,3 +101,26 @@ home-manager generations   # list past builds; roll back by running an older one
 > (packages, programs, settings); `switch` makes your `$HOME` match that
 > declaration. You describe the end state — Nix works out the steps. Editing a
 > `.nix` file changes nothing until you run `switch` again.
+
+### tmux session-finder config (default + override)
+
+`<prefix>f` opens a session-finder menu whose entries (key → directories) come
+from a TOML config. It uses a **default + optional override** model:
+
+- **Default** — `~/.config/tmux/sessionizer.toml.example` is shipped by Home
+  Manager (read-only, from `home/tmux-sessionizer.toml.example`). The menu falls
+  back to it when no override exists, so `<prefix>f` works out of the box.
+- **Override** — `~/.config/tmux/sessionizer.toml`, if present, takes
+  precedence. It is **not** Nix-managed (machine-local, like `local.nix`), so
+  it's yours to create and edit freely.
+
+To customize, copy the example and edit the copy:
+
+```sh
+cp ~/.config/tmux/sessionizer.toml.example ~/.config/tmux/sessionizer.toml
+$EDITOR ~/.config/tmux/sessionizer.toml
+```
+
+The menu reads the file fresh on every `<prefix>f` keypress, so edits to your
+override are **live — no `home-manager switch`, no tmux reload**. (Changing the
+shipped default in `home/tmux-sessionizer.toml.example` still needs a `switch`.)
