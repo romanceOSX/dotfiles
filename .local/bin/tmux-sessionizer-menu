@@ -37,10 +37,14 @@ while IFS= read -r entry; do
         dirs=("${all_dirs[@]}")
     fi
 
+    # Preview the dirs this entry browses, e.g. "git  (~/git, /mnt/c/git)".
+    dir_str="${dirs[0]}"
+    for d in "${dirs[@]:1}"; do dir_str+=", $d"; done
+
     p_args="-p"
     for d in "${dirs[@]}"; do p_args+=" $d"; done
 
-    menu_args+=("${label}" "$key" "display-popup -E 'tmux-sessionizer ${p_args}'")
+    menu_args+=("${label}  (${dir_str})" "$key" "display-popup -E 'tmux-sessionizer ${p_args}'")
 done < <(jq -c '.entries[]' <<< "$json")
 
 exec tmux display-menu \
