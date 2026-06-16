@@ -37,6 +37,18 @@
       source = ../.local/bin/fix-sudo-path;
       executable = true;
     };
+    ".local/bin/tmux-resurrect-prune" = {
+      source = ../.local/bin/tmux-resurrect-prune;
+      executable = true;
+    };
+    ".local/bin/tmux-conf-info" = {
+      source = ../.local/bin/tmux-conf-info;
+      executable = true;
+    };
+    ".local/bin/tmux-continuum-ensure-hook" = {
+      source = ../.local/bin/tmux-continuum-ensure-hook;
+      executable = true;
+    };
     ".local/bin/enable-wake-on-lan" = {
       source = ../.local/bin/enable-wake-on-lan;
       executable = true;

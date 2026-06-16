@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Keep only the newest N tmux-resurrect snapshots; delete the rest.
+#
+# tmux-resurrect / tmux-continuum never cap the number of
+# tmux_resurrect_<timestamp>.txt files they write, so the save dir grows
+# without bound. This is invoked on every continuum save (from status-right)
+# to keep the directory bounded. Prints nothing, so it's invisible in the bar.
+#
+# Usage: tmux-resurrect-prune <resurrect-dir> <keep-count>
+set -eu
+
+dir="${1:?usage: tmux-resurrect-prune <dir> <keep>}"
+keep="${2:?usage: tmux-resurrect-prune <dir> <keep>}"
+
+[ -d "$dir" ] || exit 0
+
+# Newest-first by mtime; skip the first $keep, remove the rest. The resurrect
+# `last` symlink always points at the newest snapshot, so it is never removed.
+# A while-read loop (not `xargs -r`) keeps this portable to macOS BSD xargs.
+ls -1t "$dir"/tmux_resurrect_*.txt 2>/dev/null | tail -n +"$((keep + 1))" |
+  while IFS= read -r snapshot; do
+    [ -n "$snapshot" ] && rm -f -- "$snapshot"
+  done
+
+exit 0

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Ensure continuum's auto-save hook is in status-right.
+#
+# continuum.tmux normally prepends "#(<path>/continuum_save.sh)" to status-right
+# when it loads.  It skips that step when it thinks another tmux server is
+# running, which can happen if the resurrect restore leaves a stale
+# "tmux display-message" child process alive (the tmux_spinner.sh orphan).
+#
+# This script is idempotent: it only adds the hook when it's missing.
+# Call it from tmux.conf immediately after run-shell continuum.tmux:
+#
+#   run-shell continuum.tmux
+#   run-shell "~/.local/bin/tmux-continuum-ensure-hook '<path>/continuum_save.sh'"
+#
+# Usage: tmux-continuum-ensure-hook <path-to-continuum_save.sh>
+set -eu
+
+save_script="${1:?usage: tmux-continuum-ensure-hook <path-to-continuum_save.sh>}"
+hook="#($save_script)"
+sr=$(tmux show-options -gv status-right 2>/dev/null || true)
+
+case "$sr" in
+  *"$hook"*) ;; # already present — nothing to do
+  *) tmux set -g status-right "${hook}${sr}" ;;
+esac

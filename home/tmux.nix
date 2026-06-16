@@ -25,9 +25,14 @@ in
     terminal = "tmux-256color";
     historyLimit = 50000;
 
+    # NOTE: tmux-continuum is intentionally NOT in the `plugins` list. HM emits the
+    # plugin `run-shell` lines BEFORE extraConfig, and tmux-nova's load resets
+    # `status-right` (nova.sh: `set-option -g status-right ""`) — which would wipe
+    # continuum's `#(continuum_save.sh)` auto-save hook. continuum is instead loaded
+    # at the very END of extraConfig, so it runs after nova and after its
+    # @continuum-* options are set (continuum reads them at load time).
     plugins = with pkgs.tmuxPlugins; [
       resurrect
-      continuum
       yank
       tmux-fzf
       tmux-nova
@@ -105,15 +110,28 @@ in
       bind t display-popup -E -w 30% -h 40% "tmux-launcher"
       bind T display-popup -E -w 90% -h 90% "taskwarrior-tui"
       bind C-l send-keys 'clear' Enter
+      # <prefix>i: a config/continuum/server info window (tmux-conf-info reads the
+      # snapshot dir + retention cap so it stays in sync with the prune below).
+      bind i display-popup -E -w 80% -h 80% "tmux-conf-info '${resurrectDir}' '${toString keepLastSnapshots}'"
 
       # --- resurrect / continuum (options consumed by the nix-managed plugins) ---
       # Pin the save dir to the XDG path. Without this, this resurrect build
-      # falls back to ~/.tmux/resurrect, which diverges from the cleanup hook
-      # below (so old saves accumulate unbounded). Keep both pointing here.
-      set -g @resurrect-dir "${config.xdg.dataHome}/tmux/resurrect"
-      set-hook -g client-detached "run 'ls -t ${config.xdg.dataHome}/tmux/resurrect/tmux_resurrect_*.txt 2>/dev/null | tail -n +11 | xargs rm -f'"
+      # falls back to ~/.tmux/resurrect, which diverges from the prune below
+      # (so old saves accumulate unbounded). Keep both pointing here.
+      set -g @resurrect-dir "${resurrectDir}"
       set -g @continuum-restore 'on'
       set -g @continuum-save-interval '5'
+
+      # Don't restore a blank session: bring back the on-screen pane text and
+      # re-launch the programs that were running.
+      #   - capture-pane-contents 'on' saves/replays each pane's visible buffer,
+      #     so restored panes show their previous output instead of an empty shell.
+      #   - @resurrect-processes re-launches programs. resurrect ALREADY restores
+      #     a default list (vi/vim/nvim/emacs/man/less/more/tail/top/htop/...);
+      #     entries here are ADDED to it. A leading `~` relaxes name matching so
+      #     the full binary path saved in the snapshot still matches.
+      set -g @resurrect-capture-pane-contents 'on'
+      set -g @resurrect-processes 'ssh "~lazygit" "~btop" "~yazi" "~taskwarrior-tui" "~claude" "~copilot"'
 
       # --- sessionx (options harmless if the plugin isn't installed) ---
       set -g @sessionx-bind 'o'
@@ -135,6 +153,28 @@ in
       set -g @nova-segment-time-colors "#191719 #7E7480"
       set -g @nova-segments-0-left "session"
       set -g @nova-segments-0-right "time"
+
+      # --- continuum: load LAST (see the note above the plugins list) ---
+      # Loading here — after tmux-nova has built status-right and after the
+      # @continuum-restore / @continuum-save-interval options above — is what
+      # makes the periodic auto-save actually fire and auto-restore on start
+      # honour the settings. continuum prepends its `#(continuum_save.sh)` hook
+      # to the existing status-right, so it coexists with nova's time segment.
+      run-shell ${pkgs.tmuxPlugins.continuum}/share/tmux-plugins/continuum/continuum.tmux
+      # Guard: continuum skips adding its save hook when it thinks another tmux
+      # server is running. This can happen if resurrect's tmux_spinner.sh orphans
+      # a "tmux display-message" child that inflates the process count. The guard
+      # script re-adds the hook if continuum's check blocked it. Idempotent.
+      run-shell "~/.local/bin/tmux-continuum-ensure-hook '${pkgs.tmuxPlugins.continuum}/share/tmux-plugins/continuum/scripts/continuum_save.sh'"
+
+      # --- cap the number of retained snapshots ---
+      # continuum saves via a `#(continuum_save.sh)` interpolation it prepends to
+      # status-right (re-run every status-interval). Append our prune right after
+      # so each save is immediately followed by a cleanup that keeps only the
+      # newest ${toString keepLastSnapshots} snapshots — bounding the dir even
+      # during a long, never-detached session. The script prints nothing, so it
+      # adds no visible text to the status bar.
+      set -ga status-right "#(~/.local/bin/tmux-resurrect-prune '${resurrectDir}' '${toString keepLastSnapshots}')"
     '';
   };
 }

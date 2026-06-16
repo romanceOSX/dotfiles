@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+# tmux-conf-info — a quick "where is everything / what is running" summary for
+# the current tmux server, meant to be shown in a popup (bind i display-popup).
+#
+# It reports:
+#   - configuration file locations (what tmux actually loaded)
+#   - continuum / resurrect snapshot state (dir, count, last save, retention)
+#   - server metadata (version, prefix, counts, options)
+#   - the nix-managed plugins that are loaded (auto-detected, no hard-coding)
+#
+# Usage: tmux-conf-info [resurrect-dir] [keep-count]
+#   resurrect-dir  where continuum/resurrect write snapshots
+#                  (default: $XDG_DATA_HOME/tmux/resurrect)
+#   keep-count     retention cap enforced by tmux-resurrect-prune, shown for
+#                  reference (optional)
+set -u
+
+resurrect_dir="${1:-${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect}"
+keep="${2:-}"
+
+# --- styling (only when stdout is a tty) ---------------------------------------
+if [ -t 1 ]; then
+  bold=$'\e[1m'; dim=$'\e[2m'; pink=$'\e[38;2;197;142;167m'; reset=$'\e[0m'
+else
+  bold=''; dim=''; pink=''; reset=''
+fi
+
+header() { printf '\n%s%s┃ %s%s\n' "$bold" "$pink" "$1" "$reset"; }
+kv()     { printf '  %s%-16s%s %s\n' "$dim" "$1" "$reset" "$2"; }
+
+# tmux query helpers (safe if the server/option is missing)
+fmt()  { tmux display-message -p "$1" 2>/dev/null; }   # expand a format string
+opt()  { tmux show-options -gv "$1" 2>/dev/null; }      # global option value
+wopt() { tmux show-options -gwv "$1" 2>/dev/null; }     # global window option
+
+# Portable mtime → "YYYY-MM-DD HH:MM:SS" (GNU stat, else BSD/macOS stat).
+file_mtime() {
+  if stat -c '%y' "$1" >/dev/null 2>&1; then
+    stat -c '%y' "$1" | cut -d. -f1
+  else
+    stat -f '%Sm' -t '%Y-%m-%d %H:%M:%S' "$1" 2>/dev/null
+  fi
+}
+
+render() {
+  printf '%s%s tmux configuration info %s\n' "$bold" "$pink" "$reset"
+  kv "version"  "$(tmux -V | awk '{print $2}')"
+  kv "server pid" "$(fmt '#{pid}')"
+  kv "socket"   "$(fmt '#{socket_path}')"
+  # Surface the most recent resurrect save right at the top so it's
+  # immediately visible without scrolling.
+  if [ -d "$resurrect_dir" ]; then
+    _newest="$(ls -1t "$resurrect_dir"/tmux_resurrect_*.txt 2>/dev/null | head -n1)"
+    [ -n "$_newest" ] && kv "saved at" "$(file_mtime "$_newest")"
+  fi
+
+  # --- Configuration files ----------------------------------------------------
+  header "Configuration files"
+  cfgs="$(fmt '#{config_files}')"   # comma-separated, tmux 3.2+
+  if [ -n "$cfgs" ]; then
+    printf '%s' "$cfgs" | tr ',' '\n' | while IFS= read -r f; do
+      [ -n "$f" ] && kv "loaded" "$f"
+    done
+  else
+    for f in "$HOME/.config/tmux/tmux.conf" "$HOME/.tmux.conf" /etc/tmux.conf; do
+      [ -f "$f" ] && kv "exists" "$f"
+    done
+  fi
+  kv "managed by" "Home Manager (home/tmux.nix)"
+
+  # --- Continuum / resurrect --------------------------------------------------
+  header "Continuum / resurrect"
+  kv "auto-restore"  "$(opt @continuum-restore)"
+  saveint="$(opt @continuum-save-interval)"
+  kv "save interval" "${saveint:-?} min"
+  pane_contents="$(opt @resurrect-capture-pane-contents)"
+  kv "pane contents" "${pane_contents:-off}"
+  procs="$(opt @resurrect-processes)"
+  kv "restore procs" "${procs:-defaults only}"
+  kv "snapshot dir"  "$resurrect_dir"
+  [ -n "$keep" ] && kv "retention cap" "newest $keep snapshots"
+  if [ -d "$resurrect_dir" ]; then
+    count="$(ls -1 "$resurrect_dir"/tmux_resurrect_*.txt 2>/dev/null | wc -l | tr -d ' ')"
+    kv "saved snapshots" "$count"
+    newest="$(ls -1t "$resurrect_dir"/tmux_resurrect_*.txt 2>/dev/null | head -n1)"
+    [ -n "$newest" ] && kv "saved at"       "$(file_mtime "$newest")"
+    if [ -L "$resurrect_dir/last" ]; then
+      restore_target="$(readlink -f "$resurrect_dir/last")"
+      kv "restore target" "$(file_mtime "$restore_target")"
+    fi
+    kv "disk used" "$(du -sh "$resurrect_dir" 2>/dev/null | cut -f1)"
+  else
+    kv "status" "no snapshots yet"
+  fi
+
+  # --- Server metadata --------------------------------------------------------
+  header "Server metadata"
+  kv "prefix"        "$(opt prefix)"
+  kv "key mode"      "$(wopt mode-keys)"
+  kv "mouse"         "$(opt mouse)"
+  kv "base-index"    "$(opt base-index)"
+  kv "history-limit" "$(opt history-limit)"
+  kv "sessions"      "$(tmux list-sessions   2>/dev/null | wc -l | tr -d ' ')"
+  kv "windows"       "$(tmux list-windows -a 2>/dev/null | wc -l | tr -d ' ')"
+  kv "panes"         "$(tmux list-panes -a   2>/dev/null | wc -l | tr -d ' ')"
+  kv "clients"       "$(tmux list-clients    2>/dev/null | wc -l | tr -d ' ')"
+
+  # --- Plugins (auto-detected from the loaded config) -------------------------
+  header "Plugins (nix-managed)"
+  # Scan every loaded config file (plus the default path as a fallback) for the
+  # `run-shell .../tmux-plugins/<name>/<name>.tmux` lines HM emits per plugin.
+  plugins="$(
+    { printf '%s' "$cfgs" | tr ',' '\n'; printf '%s\n' "$HOME/.config/tmux/tmux.conf"; } \
+      | while IFS= read -r f; do
+          [ -n "$f" ] && [ -f "$f" ] &&
+            grep -hoE 'tmux-plugins/[^/]+/[^/ ]+\.tmux' "$f" 2>/dev/null
+        done | sed -E 's#tmux-plugins/([^/]+)/.*#\1#' | sort -u
+  )"
+  if [ -n "$plugins" ]; then
+    printf '%s\n' "$plugins" | while IFS= read -r p; do kv "•" "$p"; done
+  else
+    kv "status" "none detected"
+  fi
+
+  # --- Handy keys -------------------------------------------------------------
+  header "Keys"
+  kv "<prefix> r" "reload config"
+  kv "<prefix> ?" "searchable key list"
+  kv "<prefix> i" "this info window"
+  printf '\n'
+}
+
+# Page it when interactive so long output is scrollable; otherwise dump plainly.
+if [ -t 1 ] && command -v less >/dev/null 2>&1; then
+  render | less -R
+else
+  render
+fi
