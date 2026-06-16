@@ -55,4 +55,3 @@ independently.
   live in each image's `/etc/nix/nix.conf`.
 - Activation uses `-b backup`, so any base files get renamed to `*.backup`
   instead of aborting — the migration behaviour from the top-level README.
-- Nothing here is linked into `$HOME` by stow (see `.stow-local-ignore`).

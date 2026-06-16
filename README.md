@@ -1,25 +1,17 @@
 # dotfiles
 
-Config for tmux, zsh, and shell utilities.
+Config for tmux, zsh, and shell utilities, managed with Nix / Home Manager.
 
 ### requirements
 
-- [GNU Stow](https://www.gnu.org/software/stow/) — `brew install stow`
-- [Starship](https://starship.rs) — `brew install starship`
-
-### install
-
-```sh
-git clone <repo> ~/git/dotfiles
-cd ~/git/dotfiles
-./install.sh
-```
+- [Nix](https://nixos.org) with flakes (the Determinate installer enables them) —
+  see bootstrap below.
 
 ### structure
 
-- `.zshrc` — zsh entry point, sources `.commonrc`
-- `.commonrc` — shared shell config (bash & zsh compatible)
-- `.tmux.conf` — tmux config, `C-a` prefix, vi bindings
+- `home/` — Home Manager modules; the source of truth for the whole environment
+- `home/shell.nix` — zsh entry point: env, aliases, vi-mode, functions
+- `home/tmux.nix` — tmux config, `C-a` prefix, vi bindings
 - `.local/bin/` — shell utilities (`tmux-sessionizer`, `tmux-launcher`)
 
 ---
@@ -29,9 +21,8 @@ cd ~/git/dotfiles
 A [Home Manager](https://nix-community.github.io/home-manager/) flake reproduces
 this whole environment (zsh, starship, fzf, lazygit, yazi, tmux, neovim, plus
 Node/Rust/C++ toolchains) on macOS, WSL, and Debian — no NixOS required. The
-shell/tool configs are translated into native `programs.*` modules under
-`home/`; the hand-written dotfiles above stay as the source of truth for the
-stow path.
+`home/*.nix` modules are the source of truth; they declare the shell/tool
+configs as native `programs.*` modules.
 
 ### layout
 
@@ -39,9 +30,9 @@ stow path.
 - `home/` — the Home Manager modules
   - `default.nix` — imports + stateVersion
   - `packages.nix` — toolchains (Node/Rust/clang) + CLI utilities
-  - `shell.nix` — zsh, fzf, starship, env, aliases, vi-mode (from `.commonrc`/`.zshrc`)
+  - `shell.nix` — zsh, fzf, starship, env, aliases, vi-mode
   - `programs.nix` — lazygit, yazi, neovim, git
-  - `tmux.nix` — tmux + nix-managed plugins (from `.tmux.conf`)
+  - `tmux.nix` — tmux + nix-managed plugins
   - `scripts.nix` — `.local/bin/*` → `~/.local/bin`
 
 ### bootstrap on a new machine (WSL / Debian)
@@ -67,20 +58,7 @@ home-manager switch --flake ~/git/dotfiles#romance@wsl
 
 Home Manager **never overwrites files it didn't create**. If `~/.zshrc`,
 `~/.config/...`, etc. already exist, `switch` *aborts* with an "in the way"
-error instead of clobbering them. Clear the path first, depending on how that
-machine is currently managed:
-
-**Already using this repo via stow** — remove the stow symlinks, then activate:
-
-```sh
-cd ~/git/dotfiles && stow -D .                 # unlink the stow-managed files
-home-manager switch --flake .#romance@<host>
-```
-
-Don't run stow *and* Home Manager on the same machine — they manage the same
-paths and will fight. Unstowing is the handoff.
-
-**Plain / hand-edited dotfiles** — let HM move the conflicts aside as it links:
+error instead of clobbering them. Let HM move the conflicts aside as it links:
 
 ```sh
 home-manager switch -b backup --flake .#romance@<host>
@@ -95,13 +73,13 @@ Nix profile; both can coexist on `PATH`. Remove the old ones later if you want.
 ### making changes (you don't edit the linked files directly)
 
 Once a machine is on Home Manager, the dotfiles in `$HOME` are **read-only
-symlinks into `/nix/store`** — you can't edit them in place like the stow setup.
-The workflow is always: edit the *source* in this repo, then re-activate.
+symlinks into `/nix/store`** — you can't edit them in place. The workflow is
+always: edit the *source* in this repo, then re-activate.
 
 ```sh
 # 1. edit either:
 #      - a .nix module under home/      (e.g. add a package to home/packages.nix)
-#      - or a referenced config file    (.config/yazi/theme.toml, .config/starship.toml, …)
+#      - or a referenced config file    (home/yazi/theme.toml, home/starship.toml, …)
 # 2. apply it:
 home-manager switch --flake .#romance@<host>
 ```

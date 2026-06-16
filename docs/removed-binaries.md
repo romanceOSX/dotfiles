@@ -98,7 +98,6 @@ together or file previews break (chafa/ffmpeg are already tracked at the top).
 | Formula | Nix package | Keep? / Notes |
 |---|---|---|
 | `coreutils` | `coreutils` | already in Nix ✅ |
-| `stow` | `stow` | already in Nix ✅ |
 | `fzf` | (via `programs.fzf`) | already in Nix ✅ |
 | `zoxide` | (via `programs.zoxide`) | already in Nix ✅ |
 | `fd` | `fd` | already in Nix ✅ |
