@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Session-finder: reads ~/.config/tmux/sessionizer.toml, shows categories in
-# an fzf picker, then browses the selected dirs with tmux-sessionizer.
+# Session-finder: reads ~/.config/tmux/sessionizer.toml, builds a native
+# tmux display-menu from its entries, and opens tmux-sessionizer (fzf) for
+# the selected category. Navigate the menu with arrow keys or letter shortcuts.
 # Called from tmux via: bind f run-shell "~/.local/bin/tmux-sessionizer-menu"
 
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/tmux/sessionizer.toml"
@@ -21,9 +22,7 @@ done < <(jq -r '
     .entries[] | select(.dirs | map(. == "*") | any | not) | .dirs[]
 ' <<< "$json")
 
-# Build a temp file of "label<TAB>-p dir1 dir2" lines — one per entry
-tmp=$(mktemp)
-trap 'rm -f "$tmp"' EXIT
+menu_args=()
 
 while IFS= read -r entry; do
     label=$(jq -r '.label' <<< "$entry")
@@ -33,22 +32,17 @@ while IFS= read -r entry; do
         dirs+=("$d")
     done < <(jq -r '.dirs[]' <<< "$entry")
 
-    [[ "${dirs[0]}" == "*" ]] && dirs=("${all_dirs[@]}")
+    if [[ "${dirs[0]}" == "*" ]]; then
+        dirs=("${all_dirs[@]}")
+    fi
 
     p_args="-p"
     for d in "${dirs[@]}"; do p_args+=" $d"; done
 
-    printf '%s\t%s\n' "$label" "$p_args" >> "$tmp"
+    menu_args+=("${label}" "$key" "display-popup -E 'tmux-sessionizer ${p_args}'")
 done < <(jq -c '.entries[]' <<< "$json")
 
-# Show categories in fzf (inside a popup so fzf has a tty), then hand off
-# to tmux-sessionizer which runs a second fzf for dir/session picking.
-# FZF_DEFAULT_OPTS is not set in this bash subprocess, so bind explicitly.
-FZF_BIND="ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept"
-
-tmux display-popup -E -w 40% -h 40% "bash -c '
-    sel=\$(cut -f1 \"$tmp\" | fzf --prompt=\"󰍉  \" --bind=\"$FZF_BIND\" --no-info)
-    [[ -z \"\$sel\" ]] && exit
-    args=\$(grep -F \"\$sel\$(printf \"\\\t\")\" \"$tmp\" | head -1 | cut -f2-)
-    exec tmux-sessionizer \$args
-'"
+exec tmux display-menu \
+    -T "#[align=centre,fg=#C58EA7]󰍉 sessionizer " \
+    -x C -y C \
+    "${menu_args[@]}"
