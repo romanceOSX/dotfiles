@@ -1,4 +1,4 @@
-{ pkgs, lib, config, ... }:
+{ pkgs, lib, config, isWSL ? false, ... }:
 {
   # ---------------------------------------------------------------------------
   # Environment (translated from .commonrc "Environment" + "ls colors")
@@ -42,6 +42,27 @@
     dotDir = "${config.xdg.configHome}/zsh";
     enableCompletion = true; # runs compinit (needed by fzf-tab)
     defaultKeymap = "viins"; # `set -o vi`, start in insert mode
+
+    # --- WSL <-> Windows interop for ssh sessions ---------------------------
+    # WSL only appends the Windows PATH (and exports WSL_INTEROP) for shells it
+    # starts via `/init` (i.e. `wsl.exe`). A standalone sshd skips that, so
+    # `cmd.exe`/`powershell.exe` -- and the `cmd`/`cansniff` aliases below --
+    # are not found by name over ssh, even though binfmt interop still launches
+    # them by full path. Put this in .zshenv (envExtra) so it applies to
+    # non-interactive `ssh host <cmd>` too. Guarded at runtime on WSL_INTEROP
+    # being unset (a normal wsl.exe login is left untouched) and on cmd.exe
+    # existing (no-op on non-WSL hosts).
+    envExtra = lib.optionalString isWSL ''
+      if [[ -z "$WSL_INTEROP" && -x /mnt/c/Windows/System32/cmd.exe ]]; then
+        typeset -U path
+        path+=(
+          /mnt/c/Windows/System32
+          /mnt/c/Windows
+          /mnt/c/Windows/System32/WindowsPowerShell/v1.0
+        )
+        export PATH
+      fi
+    '';
 
     # LINUX ONLY: if the login shell is system zsh, re-exec into nix's zsh so
     # nix-built modules (fzf-tab) load against the matching glibc. The guard uses
