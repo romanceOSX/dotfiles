@@ -9,11 +9,19 @@ FZF_NAV="--bind=ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:ac
 # target. No args: fzf over the default roots (~/git and home).
 if [ "$1" = "-p" ]; then
     shift
-    selected=$(find -L "$@" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | fzf $FZF_NAV)
+    # Include each parent dir itself as a selectable entry, then its children.
+    # awk deduplicates without sorting (preserves order).
+    selected=$(
+        { printf '%s\n' "$@"; find -L "$@" -mindepth 1 -maxdepth 1 -type d 2>/dev/null; } \
+        | awk '!seen[$0]++' | fzf $FZF_NAV
+    )
 elif [ "$#" -eq 1 ]; then
     selected=$1
 else
-    selected=$(find -L ~/git ~ ~/notes -mindepth 1 -maxdepth 1 -type d 2>/dev/null | fzf $FZF_NAV)
+    selected=$(
+        { printf '%s\n' ~/git ~ ~/notes; find -L ~/git ~ ~/notes -mindepth 1 -maxdepth 1 -type d 2>/dev/null; } \
+        | awk '!seen[$0]++' | fzf $FZF_NAV
+    )
 fi
 
 if [ -z "$selected" ]; then
