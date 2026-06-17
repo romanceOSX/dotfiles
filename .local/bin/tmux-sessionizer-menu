@@ -3,6 +3,11 @@
 # tmux display-menu from its entries, and opens tmux-sessionizer (fzf) for
 # the selected category. Navigate the menu with arrow keys or letter shortcuts.
 # Called from tmux via: bind f run-shell "~/.local/bin/tmux-sessionizer-menu"
+#
+# Entry types:
+#   dirs  = ["~/git", ...]   → tmux-sessionizer directory picker
+#   dirs  = ["*"]            → expands to all dirs defined across other entries
+#   cmd   = "some-script"    → runs the script in a display-popup (arbitrary TUI)
 
 # Prefer the user's custom config; fall back to the shipped default/example.
 # Customize by copying the .example to sessionizer.toml (see its header).
@@ -18,19 +23,33 @@ with open(sys.argv[1], 'rb') as f:
     print(json.dumps(tomllib.load(f)))
 " "$CONF") || { tmux display-message "Failed to parse $CONF"; exit 1; }
 
-# Collect every dir from non-wildcard entries (used to expand '*')
+# Collect every dir from non-wildcard, non-cmd entries (used to expand '*')
 all_dirs=()
 while IFS= read -r line; do
     all_dirs+=("$line")
 done < <(jq -r '
-    .entries[] | select(.dirs | map(. == "*") | any | not) | .dirs[]
+    .entries[]
+    | select(.cmd == null)
+    | select(.dirs | map(. == "*") | any | not)
+    | .dirs[]
 ' <<< "$json")
 
 menu_args=()
+seen_cmd=0
 
 while IFS= read -r entry; do
     key=$(jq -r '.key'   <<< "$entry")
     label=$(jq -r '.label' <<< "$entry")
+
+    # cmd entries: arbitrary TUI launched in a popup (e.g. tmux-agent-monitor)
+    cmd_override=$(jq -r '.cmd // empty' <<< "$entry")
+    if [[ -n "$cmd_override" ]]; then
+        # visual separator before the first cmd entry
+        (( seen_cmd )) || menu_args+=("")
+        seen_cmd=1
+        menu_args+=("${label}" "$key" "display-popup -E '${cmd_override}'")
+        continue
+    fi
 
     dirs=()
     while IFS= read -r d; do

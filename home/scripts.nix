@@ -53,5 +53,9 @@
       source = ../.local/bin/enable-wake-on-lan;
       executable = true;
     };
+    ".local/bin/tmux-agent-monitor" = {
+      source = ../.local/bin/tmux-agent-monitor;
+      executable = true;
+    };
   };
 }

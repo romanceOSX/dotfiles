@@ -10,11 +10,13 @@
 # changes take effect immediately — no home-manager switch, no tmux reload.
 # (Your copy lives outside the dotfiles repo, like local.nix — machine-local.)
 #
-# Each [[entries]] block maps a menu key to one or more root directories.
+# Each [[entries]] block maps a menu key to one or more root directories,
+# or to an arbitrary command TUI.
 #
 #   key   — single character used in the <prefix>f session-finder menu
 #   label — display name shown in the menu
 #   dirs  — one or more parent directories to browse (tilde is supported)
+#   cmd   — instead of dirs: a script/command launched in a tmux display-popup
 #
 # Use dirs=["*"] to create a "search all" entry that expands to every
 # directory defined in every other entry. The key and label are configurable.
@@ -38,3 +40,9 @@ dirs  = ["~"]
 key   = "f"
 label = "all"
 dirs  = ["*"]
+
+# cmd entries — arbitrary TUI scripts (appear below a separator in the menu)
+[[entries]]
+key   = "a"
+label = "agents"
+cmd   = "tmux-agent-monitor"
