@@ -203,6 +203,31 @@
       zle -N _edit-command-line-eol
       bindkey '^G' _edit-command-line-eol
 
+      # --- page command output (taskwarrior #13) ---------------------------
+      # Themed pager shared by the `L` global alias and the ^O widget below.
+      # Swap bat -> less here (one place) to change the pager everywhere.
+      function _page() { bat --paging=always "$@"; }
+
+      # Global alias: append `L` to any command to page its combined output.
+      #   ls -la L            -> ls -la 2>&1 | _page
+      #   git log L           -> git log 2>&1 | _page
+      # `2>&1` folds stderr in so compiler/make spew is paged too. Like all zsh
+      # global aliases, `L` expands anywhere on the line, so don't use a bare
+      # `L` as a normal argument (the single-letter global-alias footgun).
+      alias -g L='2>&1 | _page'
+
+      # ^O — re-run the PREVIOUS command, paging its combined output. Re-executes
+      # the command (side effects!), so best for read-only commands (ls, git
+      # log, cat...). The brace group captures the whole pipeline's stdout+stderr.
+      function _page-last-output() {
+        local last=$(fc -ln -1)
+        [[ -n $last ]] || return
+        BUFFER="{ $last; } 2>&1 | _page"
+        zle accept-line
+      }
+      zle -N _page-last-output
+      bindkey -M viins '^O' _page-last-output
+
       # --- run-help: drop zsh's default `run-help=man` alias (the last alias
       # still pointing at a legacy util) for the smarter autoloaded function,
       # which understands builtins, aliases and git subcommands, not just man. ---
