@@ -57,5 +57,9 @@
       source = ../.local/bin/tmux-agent-monitor;
       executable = true;
     };
+    ".local/bin/tmux-ssh-menu" = {
+      source = ../.local/bin/tmux-ssh-menu;
+      executable = true;
+    };
   };
 }

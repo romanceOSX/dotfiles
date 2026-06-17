@@ -20,6 +20,16 @@
 #
 # Use dirs=["*"] to create a "search all" entry that expands to every
 # directory defined in every other entry. The key and label are configurable.
+#
+# SSH remotes live in separate [[ssh]] blocks (read by tmux-ssh-menu, reached
+# via the "ssh" cmd entry below / <prefix>f s):
+#
+#   host  — ssh target: a ~/.ssh/config alias, hostname, or IP
+#   label — optional display name in the connections menu (defaults to host)
+#   dirs  — remote directories to browse; the REMOTE shell expands ~
+#
+# Selecting a remote opens a local tmux session whose panes ssh into the host
+# at the chosen dir; the session is tinted amber and named "<host>·<dir>".
 
 [[entries]]
 key   = "g"
@@ -46,3 +56,14 @@ dirs  = ["*"]
 key   = "a"
 label = "agents"
 cmd   = "tmux-agent-monitor"
+
+[[entries]]
+key   = "s"
+label = "ssh"
+cmd   = "tmux-ssh-menu"
+
+# ── SSH remotes (consumed by tmux-ssh-menu / <prefix>f s) ──────────────────
+[[ssh]]
+host  = "pi"
+label = "raspberry pi"
+dirs  = ["~", "~/git"]

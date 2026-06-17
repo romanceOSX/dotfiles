@@ -63,6 +63,21 @@ entries. This is a tmux limitation, not a choice; it is the only menu in the
 repo exempt from the schema. The arrow keys, `esc`, and `enter` it does support
 still match the schema.
 
+## Remote (SSH) sessions
+
+`<prefix>f s` opens the SSH connections menu (`tmux-ssh-menu`): a fzf list of
+configured (`[[ssh]]` in `sessionizer.toml`) and currently-connected hosts with
+their live status and session count, plus a "new connection" entry that accepts
+any hostname/IP. Selecting a host re-enters the sessionizer's directory picker
+**over the remote filesystem**, then opens a local tmux session whose `editor`
+(remote nvim) and `shell` panes ssh into the host at the chosen dir.
+
+Remote sessions are **visually distinct**: the status bar is tinted muted amber
+(`#F6CF94`) instead of the local mauve, and the session is named `<host>·<dir>`
+so the host shows in the status-bar segment. Connections are multiplexed
+(`ControlMaster`) over the existing ssh transport — no extra ports, works over
+Tailscale and locked-down networks.
+
 ---
 
 ## tmux prefix bindings
@@ -72,6 +87,8 @@ Prefix: `C-a`
 | Key | Action |
 |-----|--------|
 | `<prefix> f` | Session-finder (display-menu — see exception above) |
+| `<prefix> f a` | Agent monitor — claude/copilot sessions (fzf) |
+| `<prefix> f s` | SSH connections menu (fzf) — open/resume a remote session |
 | `<prefix> w` | Window picker (fzf — follows schema) |
 | `<prefix> ?` | Searchable key list (fzf — follows schema) |
 | `<prefix> t` | Command launcher popup (fzf — follows schema) |

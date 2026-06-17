@@ -4,10 +4,37 @@
 # because this runs in a tmux popup that may not inherit FZF_DEFAULT_OPTS.
 FZF_NAV="--bind=ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept"
 
-# -p <dir> [<dir2> ...]: fzf-browse the immediate subdirs of all given parents
-# (follows symlinks, e.g. ~/notes -> iCloud). Bare arg: use it as the exact
-# target. No args: fzf over the default roots (~/git and home).
-if [ "$1" = "-p" ]; then
+# Shared SSH multiplexing opts (see tmux-ssh-menu). ControlMaster reuses one
+# connection for the browse + both panes, so a session opens with a single auth.
+# %C (hashed host/port/user) keeps the socket path under macOS's 104-char limit.
+SSH_SOCK_DIR="${XDG_RUNTIME_DIR:-$HOME/.ssh/sockets}"
+mkdir -p "$SSH_SOCK_DIR" 2>/dev/null
+SSH_OPTS="-o ControlMaster=auto -o ControlPath=$SSH_SOCK_DIR/%C -o ControlPersist=10m"
+
+# -r <host> [dir ...]: REMOTE mode. fzf-browse the immediate subdirs of the
+#   given remote dirs (over ssh), then open a LOCAL session whose editor/shell
+#   panes ssh into <host> at the chosen dir. The session is tinted amber and
+#   tagged @ssh_host so it's obvious you're working remotely.
+# -p <dir> [dir ...]: fzf-browse the immediate subdirs of all given parents
+#   (follows symlinks, e.g. ~/notes -> iCloud). Bare arg: use it as the exact
+#   target. No args: fzf over the default roots (~/git and home).
+REMOTE_HOST=""
+if [ "$1" = "-r" ]; then
+    shift
+    REMOTE_HOST="$1"
+    shift
+    [ -z "$REMOTE_HOST" ] && exit 1
+    # Default remote roots if none were passed.
+    [ "$#" -eq 0 ] && set -- '~' '~/git'
+    # List each remote root itself, then its immediate children, over one ssh.
+    # The remote shell expands ~; awk dedups while preserving order.
+    selected=$(
+        ssh $SSH_OPTS "$REMOTE_HOST" \
+            'for d in '"$*"'; do printf "%s\n" "$d"; \
+                find -L "$d" -mindepth 1 -maxdepth 1 -type d 2>/dev/null; done' \
+        | awk '!seen[$0]++' | fzf $FZF_NAV
+    )
+elif [ "$1" = "-p" ]; then
     shift
     # Include each parent dir itself as a selectable entry, then its children.
     # awk deduplicates without sorting (preserves order).
@@ -28,6 +55,58 @@ if [ -z "$selected" ]; then
     exit 0
 fi
 
+# ---------------------------------------------------------------------------
+# Remote sessions: a LOCAL tmux session whose panes ssh into the remote.
+# ---------------------------------------------------------------------------
+if [ -n "$REMOTE_HOST" ]; then
+    base=$(basename "$selected" | tr ' .:' '___')
+    selected_name="${REMOTE_HOST}·${base}"
+
+    # ssh commands the panes run. -t forces a pty; cd to the (already-expanded,
+    # absolute) remote dir, then launch via a LOGIN shell so the remote PATH is
+    # set up (nvim resolves even from a nix/profile install). The editor window
+    # drops back to an interactive login shell when you quit nvim, so the window
+    # survives. \$SHELL is escaped to expand on the remote, not locally.
+    edit_cmd="ssh $SSH_OPTS -t \"$REMOTE_HOST\" \"cd '$selected' && exec \\\$SHELL -lc 'nvim; exec \\\$SHELL -li'\""
+    shell_cmd="ssh $SSH_OPTS -t \"$REMOTE_HOST\" \"cd '$selected' && exec \\\$SHELL -li\""
+
+    apply_remote_style() {
+        # Per-session overrides win over nova's global -g status/pane styles, so
+        # the bar turns muted amber for this session only (host shown in name).
+        tmux set-option -t "$selected_name" @ssh_host "$REMOTE_HOST"
+        tmux set-option -t "$selected_name" status-style "bg=#4A3F2A,fg=#F6CF94"
+        tmux set-option -t "$selected_name" pane-active-border-style "fg=#F6CF94"
+        tmux set-option -t "$selected_name" pane-border-style "fg=#3A3326"
+    }
+
+    tmux_running=$(pgrep tmux)
+    if [ -z "$TMUX" ] && [ -z "$tmux_running" ]; then
+        tmux new-session -ds "$selected_name" -n "editor"
+        tmux send-keys -t "$selected_name:editor" "$edit_cmd" Enter
+        tmux new-window -t "$selected_name" -n "shell"
+        tmux send-keys -t "$selected_name:shell" "$shell_cmd" Enter
+        tmux select-window -t "$selected_name:editor"
+        apply_remote_style
+        tmux attach-session -t "$selected_name"
+        exit 0
+    fi
+
+    if ! tmux has-session -t="$selected_name" 2>/dev/null; then
+        tmux new-session -ds "$selected_name" -n "editor"
+        tmux send-keys -t "$selected_name:editor" "$edit_cmd" Enter
+        tmux new-window -t "$selected_name" -n "shell"
+        tmux send-keys -t "$selected_name:shell" "$shell_cmd" Enter
+        tmux select-window -t "$selected_name:editor"
+        apply_remote_style
+    fi
+
+    tmux switch-client -t "$selected_name:editor"
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Local sessions.
+# ---------------------------------------------------------------------------
 selected_name=$(basename "$selected" | tr . _)
 tmux_running=$(pgrep tmux)
 
