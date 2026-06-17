@@ -103,5 +103,8 @@
             pkgs.inetutils # `hostname` for rainbow-prompt
             pkgs.xdg-utils # provides xdg-open (aliased to `open` in shell.nix)
             pkgs.iproute2 # `ip` / `ss` — Linux-native, not available on macOS
+            # openssh provides `sshd` for the WSL ssh service (remote access into
+            # this machine). macOS ships its own sshd, so this is Linux-only.
+            pkgs.openssh
         ];
 }
