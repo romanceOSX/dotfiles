@@ -1,47 +1,46 @@
 #!/usr/bin/env bash
 # tmux-agent-monitor — K8s-style AI agent session manager
 #
-# Lists every claude / copilot tmux session (running or idle).
-# Select an entry to switch to it; pick a "new" line to spawn one.
-# Navigate with the standard schema: ctrl-j/k, tab, enter, esc.
+# Lists tmux sessions, marking which ones have an active Claude Code or
+# Copilot agent running. Select to switch; pick "new" to spawn one.
+# Navigate: ctrl-j/k, tab, enter, esc.
 #
 # Called via:  tmux display-popup -E 'tmux-agent-monitor'
 
 FZF_NAV="--bind=ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept"
 
-# Pastel-rainbow palette (matches the theme)
 PINK=$'\e[38;2;197;142;167m'
 GREEN=$'\e[38;2;180;250;158m'
+CYAN=$'\e[38;2;148;247;228m'
 DIM=$'\e[2m'
 BOLD=$'\e[1m'
 RESET=$'\e[0m'
 
-# ── Detect active agent processes (one tmux call) ──────────────────────────
-# awk: for each pane with a claude/copilot command, print "session agent"
+# ── Detect running agents ──────────────────────────────────────────────────
+# Claude Code's pane_current_command is its version number (e.g. "2.1.179"),
+# not the string "claude". Use pane_title (set by Claude Code to task
+# descriptions like "✳ Claude Code") and the semver command pattern together.
+# Copilot matches by command/title name.
 active=$(tmux list-panes -a \
-    -F '#{session_name} #{pane_current_command}' 2>/dev/null | \
-    awk '$2 ~ /^claude/  { print $1, "claude"  }
-         $2 ~ /^copilot/ { print $1, "copilot" }')
+    -F '#{session_name}\t#{pane_current_command}\t#{pane_title}' 2>/dev/null | \
+    awk -F'\t' '
+        $2 ~ /^[0-9]+\.[0-9]+\.[0-9]+$/ { print $1, "claude"; next }
+        $3 ~ /[Cc]laude/                 { print $1, "claude"; next }
+        $2 ~ /^copilot/                  { print $1, "copilot"; next }
+        $3 ~ /[Cc]opilot/               { print $1, "copilot"; next }
+    ')
 
-# ── Build fzf entry list ───────────────────────────────────────────────────
+# ── Build entry list ───────────────────────────────────────────────────────
 # Each entry: "SESSION_NAME\tVISIBLE_LINE"
-# fzf hides field 1 (--with-nth=2) and uses it for preview/action.
+# fzf hides field 1 (--with-nth=2) and uses it for preview/switching.
 
 now=$(date +%s)
-entries=()
+entries_running=()
+entries_idle=()
 
 while IFS=$'\t' read -r sess created; do
-    # Determine agent + running status via awk lookup (bash 3.2 compat, no declare -A)
     match=$(printf '%s\n' "$active" | awk -v s="$sess" '$1 == s { print $2; exit }')
 
-    if [[ -n "$match" ]]; then
-        agent="$match"; running=true
-    elif [[ "$sess" == *claude*  ]]; then agent="claude";  running=false
-    elif [[ "$sess" == *copilot* ]]; then agent="copilot"; running=false
-    else continue
-    fi
-
-    # Human-readable age
     age_s=$(( now - created ))
     if   (( age_s <    60 )); then age="${age_s}s"
     elif (( age_s <  3600 )); then age="$((age_s / 60))m"
@@ -49,29 +48,43 @@ while IFS=$'\t' read -r sess created; do
     else                           age="$((age_s / 86400))d"
     fi
 
-    if $running; then
+    if [[ -n "$match" ]]; then
+        agent="$match"
         dot="${GREEN}●${RESET}"; state="${GREEN}Running${RESET}"
+        visible=$(printf ' %s  %-12s  %s%-10s%s  %-30s  %s' \
+            "$dot" "$state" "$PINK" "[$agent]" "$RESET" "$sess" "$age")
+        entries_running+=( "${sess}"$'\t'"${visible}" )
     else
-        dot="${DIM}○${RESET}";   state="${DIM}Idle   ${RESET}"
+        dot="${DIM}○${RESET}"; state="${DIM}Idle   ${RESET}"
+        # Guess agent type from session name; otherwise show generic marker
+        if   [[ "$sess" == *claude*  ]]; then badge="${PINK}[claude] ${RESET}"
+        elif [[ "$sess" == *copilot* ]]; then badge="${PINK}[copilot]${RESET}"
+        else                                  badge="${DIM}[-]      ${RESET}"
+        fi
+        visible=$(printf ' %s  %s%s  %s  %-30s  %s' \
+            "$dot" "${DIM}" "Idle   " "$badge" "${RESET}${sess}" "$age")
+        entries_idle+=( "${sess}"$'\t'"${visible}" )
     fi
-
-    visible=$(printf ' %s  %-12s  %s%-10s%s  %-28s  %s' \
-        "$dot" "$state" "$PINK" "[$agent]" "$RESET" "$sess" "$age")
-    entries+=( "${sess}"$'\t'"${visible}" )
 done < <(
     tmux list-sessions -F '#{session_name}\t#{session_created}' 2>/dev/null \
         | sort -t$'\t' -k1,1
 )
 
-# ── Separator + "new session" actions ─────────────────────────────────────
+# ── Assemble list: running first, then idle (with separator), then "new" ──
+entries=()
+for e in "${entries_running[@]}"; do entries+=("$e"); done
+if (( ${#entries_running[@]} > 0 && ${#entries_idle[@]} > 0 )); then
+    entries+=( "__sep__"$'\t'"  ${DIM}────────────────────────────────────────────────────────${RESET}" )
+fi
+for e in "${entries_idle[@]}"; do entries+=("$e"); done
 if (( ${#entries[@]} > 0 )); then
-    entries+=( "__sep__"$'\t'"  ${DIM}─────────────────────────────────────────────────${RESET}" )
+    entries+=( "__sep2__"$'\t'"  ${DIM}────────────────────────────────────────────────────────${RESET}" )
 fi
 entries+=( "__new_claude__"$'\t'"  ${DIM}+  new${RESET}  ${PINK}[claude] ${RESET} ${DIM}spawn a new claude session${RESET}" )
 entries+=( "__new_copilot__"$'\t'"  ${DIM}+  new${RESET}  ${PINK}[copilot]${RESET} ${DIM}spawn a new copilot session${RESET}" )
 
 # ── fzf ───────────────────────────────────────────────────────────────────
-header="$(printf '%s  %-12s  %-10s  %-28s  %s%s' \
+header="$(printf '%s  %-12s  %-10s  %-30s  %s%s' \
     "${BOLD}${PINK} " "STATUS" "TYPE" "SESSION" "AGE" "${RESET}")"
 
 selected=$(printf '%s\n' "${entries[@]}" | fzf \
@@ -85,7 +98,7 @@ selected=$(printf '%s\n' "${entries[@]}" | fzf \
     --preview='
         sess={1}
         case "$sess" in
-            __new_*|__sep__)
+            __new_*|__sep__*)
                 echo "(select to spawn a new session)"
                 ;;
             *)
@@ -100,13 +113,12 @@ selected=$(printf '%s\n' "${entries[@]}" | fzf \
     --preview-window="right:50%:wrap") || exit 0
 
 sess=$(printf '%s' "$selected" | cut -f1)
-[[ -z "$sess" || "$sess" == "__sep__" ]] && exit 0
+[[ -z "$sess" || "$sess" == __sep__* ]] && exit 0
 
-# ── Action on selection ────────────────────────────────────────────────────
+# ── Action ─────────────────────────────────────────────────────────────────
 _new_session() {
     local prefix="$1" cmd="$2"
     local name="${prefix}-$(date +%H%M)"
-    # Avoid name collision
     tmux has-session -t "$name" 2>/dev/null && name="${prefix}-$$"
     tmux new-session -d -s "$name"
     tmux send-keys -t "$name" "$cmd" Enter
