@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, pkgs, ... }:
 {
   # ---------------------------------------------------------------------------
   # lazygit — pastel-rainbow theme
@@ -57,6 +57,16 @@
   # ---------------------------------------------------------------------------
   xdg.configFile."nvim".source =
     config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/init.lua";
+
+  # markdown-preview.nvim — the preview server needs a Node build (vendored
+  # node_modules / a prebuilt binary) that the plugin would otherwise download
+  # at first launch via curl+GitHub, which isn't reproducible and silently
+  # breaks offline or on uncovered arches. nixpkgs already builds it with the
+  # server bundled, so we symlink that store path to a stable location and
+  # point lazy's `dir` at it (see init.lua render.lua) — no build step, no
+  # network at launch, identical on every host.
+  home.file.".local/share/nvim/nix-plugins/markdown-preview.nvim".source =
+    pkgs.vimPlugins.markdown-preview-nvim;
 
   # eza — full pastel-rainbow theme in hex, so every category (incl. file-type
   # classes like `build`) is truecolor and nothing falls back to a 16-colour
