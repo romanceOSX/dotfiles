@@ -78,14 +78,20 @@
   '';
 
   # ---------------------------------------------------------------------------
-  # git — identity (no .gitconfig was tracked in the repo; adjust as needed)
+  # git — identity is deliberately NOT Nix-managed. Home Manager owns
+  # ~/.config/git/config (read-only symlink into the store), but the user
+  # identity lives in a plain, machine-local file pulled in via [include].
+  # That file (~/.config/git/config.local) is yours to create/edit freely —
+  # no local.nix, no `home-manager switch`. Git silently ignores it when
+  # absent, so a fresh machine still works. Set your identity with:
+  #   git config -f ~/.config/git/config.local user.name  "Your Name"
+  #   git config -f ~/.config/git/config.local user.email "you@example.com"
   # ---------------------------------------------------------------------------
   programs.git = {
     enable = true;
     settings = {
-      user.name = "romance";
-      user.email = "romanceosx@gmail.com";
       init.defaultBranch = "master";
+      include.path = "~/.config/git/config.local";
     };
   };
 

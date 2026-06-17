@@ -124,3 +124,21 @@ $EDITOR ~/.config/tmux/sessionizer.toml
 The menu reads the file fresh on every `<prefix>f` keypress, so edits to your
 override are **live — no `home-manager switch`, no tmux reload**. (Changing the
 shipped default in `home/tmux-sessionizer.toml.example` still needs a `switch`.)
+
+### git identity (machine-local, not Nix-managed)
+
+Home Manager owns `~/.config/git/config` (read-only symlink into the store), but
+your `user.name` / `user.email` are **deliberately not declared in Nix**. The
+managed config ends with `[include] path = ~/.config/git/config.local`, and that
+local file is yours to create and edit freely — no `local.nix`, no
+`home-manager switch`. Git silently ignores it when absent, so a fresh machine
+still works.
+
+Set or change your identity any time with:
+
+```sh
+git config -f ~/.config/git/config.local user.name  "Your Name"
+git config -f ~/.config/git/config.local user.email "you@example.com"
+```
+
+Verify where it resolves from with `git config --show-origin --get user.email`.

@@ -1,5 +1,10 @@
 # Copy this file to local.nix and adjust for your machine:
 #   cp local.nix.example local.nix
+#
+# Git identity is intentionally NOT configured here. It lives in a plain,
+# non-Nix-managed file so you can change it without a rebuild:
+#   git config -f ~/.config/git/config.local user.name  "Your Name"
+#   git config -f ~/.config/git/config.local user.email "you@example.com"
 {
   username = "romance";
   homeDirectory = "/home/romance";
