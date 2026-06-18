@@ -96,10 +96,10 @@ in
       bind k select-pane -U
       bind l select-pane -R
 
-      bind -r H resize-pane -L 5
-      bind -r J resize-pane -D 5
-      bind -r K resize-pane -U 5
-      bind -r L resize-pane -R 5
+      # <prefix>L jumps to the last session this client was attached to.
+      # (The vim-style pane *resize* binds that used to live on H/J/K/L are gone;
+      # resize via mouse drag instead.)
+      bind L switch-client -l
 
       set-option -g pane-active-border-style "fg=#C58EA7,bg=default"
       set-option -g pane-border-style "fg=#2F2B30,bg=default"
@@ -125,6 +125,14 @@ in
       bind -r ) switch-client -n
       bind X kill-session
       set-hook -g after-new-session 'resize-pane -D 1'
+
+      # aoe (agent-of-empires) creates its agent sessions with `window-size
+      # manual` + a fixed `default-size` (sized to its embedded live-mode view),
+      # so attaching a full-screen client doesn't resize the window and you get
+      # whitespace around the agent. For aoe_* sessions only, restore auto-sizing
+      # (latest = follow the active client) and force an immediate resize on
+      # attach. Other sessions are untouched.
+      set-hook -g client-attached 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size latest ; resize-window -A"'
 
       # --- Status bar ---
       set -g status on

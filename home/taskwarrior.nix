@@ -52,13 +52,59 @@ in
     # The HM module defaults to taskwarrior2; we want the SQLite-backed v3.
     package = pkgs.taskwarrior3;
 
-    # Muted theme to match the rest of the pastel terminal setup.
-    # NB: the HM module appends ".theme" to a string value, so omit it here.
-    colorTheme = "${pkgs.taskwarrior3}/share/doc/task/rc/dark-gray-blue-256";
+    # No stock theme include — we define a full, cohesive set of color rules
+    # below instead (see the "color.*" block in config).
 
     config = {
       confirmation = false; # don't prompt on bulk edits — the TUI is the safety net
       news.version = "3.4.2"; # silence the "new in this version" nag
+
+      # --- Muted pastel-rainbow theme -----------------------------------------
+      # Same palette as the rest of the terminal (prompt / eza / btop / delta),
+      # mapped to xterm-256 codes — Taskwarrior 3.x is 256-color only (colorN /
+      # rgbRGB / grayN), no 24-bit hex. Muted family from btop/pastel-rainbow:
+      #   rose C58EA7→175 · peach C4A07A→180 · yellow AAAA7E→144 · sage 8EAA8E→108
+      #   teal 7EAAAA→109 · slate 7E9DAA→103 · lavender 9D8EBB→139
+      # Keys MUST be flat dotted strings: TW uses both `color.due` AND
+      # `color.due.today` as distinct keys, which would collide if nested.
+      # (`color` master switch is on by default — don't set it here, it would
+      # collide with the nested color.* keys.)
+      "color.overdue" = "color175"; # rose (hottest = most urgent)
+      "color.due.today" = "color180 bold"; # peach
+      "color.due" = "color144"; # yellow
+      "color.active" = "color108 bold"; # sage (running)
+      "color.scheduled" = "color109"; # teal
+      "color.tagged" = "color103"; # slate
+      "color.recurring" = "color139"; # lavender
+      "color.blocking" = "color180"; # peach
+      "color.blocked" = "color175"; # rose
+      "color.header" = "color139"; # lavender
+      "color.label" = "color144"; # yellow
+      "color.label.sort" = "color144";
+      "color.footnote" = "color244"; # dim
+      "color.project.none" = "color244";
+      "color.tag.none" = "color244";
+      "color.completed" = "color240"; # faint
+      "color.deleted" = "color240";
+      "color.alternate" = "on color235"; # subtle alt-row background
+      "color.uda.priority.H" = "color175"; # rose
+      "color.uda.priority.M" = "color180"; # peach
+      "color.uda.priority.L" = "color109"; # teal
+      "color.calendar.today" = "color108 bold";
+      "color.calendar.due" = "color175";
+      "color.calendar.due.today" = "color180 bold";
+      "color.calendar.holiday" = "color139";
+      "color.calendar.weekend" = "on color235";
+      "color.burndown.done" = "color108";
+      "color.burndown.started" = "color180";
+      "color.burndown.pending" = "color103";
+      "color.sync.added" = "color108";
+      "color.sync.changed" = "color180";
+      "color.sync.rejected" = "color175";
+      "color.summary.bar" = "on color108";
+      "color.summary.background" = "on color236";
+      "color.undo.before" = "color175";
+      "color.undo.after" = "color108";
       # Option A: local, serverless sync target (replicated by Syncthing).
       sync.local.server_dir = syncDir;
       # Optional hardening: to encrypt the synced op-log at rest, set the SAME

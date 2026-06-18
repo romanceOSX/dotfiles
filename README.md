@@ -26,7 +26,7 @@ configs as native `programs.*` modules.
 
 ### layout
 
-- `flake.nix` — entry point; defines `romance@mac`, `romance@wsl`, `romance@debian`
+- `flake.nix` — entry point; defines `romance@osx`, `romance@wsl`, `romance@debian`
 - `home/` — the Home Manager modules
   - `default.nix` — imports + stateVersion
   - `packages.nix` — toolchains (Node/Rust/clang) + CLI utilities
@@ -45,7 +45,7 @@ curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix 
 git clone <repo> ~/git/dotfiles && cd ~/git/dotfiles
 
 # 3. activate (pick the host matching the machine; adjust username in flake.nix)
-nix run home-manager/master -- switch --flake .#romance@wsl       # or romance@debian / romance@mac
+nix run home-manager/master -- switch --flake .#romance@wsl       # or romance@debian / romance@osx
 
 # subsequent updates
 home-manager switch --flake ~/git/dotfiles#romance@wsl
@@ -73,7 +73,7 @@ add new templates to the `MAP` table near the top of the script.
 ### migrating a machine that already has dotfiles
 
 Home Manager **never overwrites files it didn't create**. If `~/.zshrc`,
-`~/.config/...`, etc. already exist, `switch` *aborts* with an "in the way"
+`~/.config/...`, etc. already exist, `switch` _aborts_ with an "in the way"
 error instead of clobbering them. Let HM move the conflicts aside as it links:
 
 ```sh
@@ -90,7 +90,7 @@ Nix profile; both can coexist on `PATH`. Remove the old ones later if you want.
 
 Once a machine is on Home Manager, the dotfiles in `$HOME` are **read-only
 symlinks into `/nix/store`** — you can't edit them in place. The workflow is
-always: edit the *source* in this repo, then re-activate.
+always: edit the _source_ in this repo, then re-activate.
 
 ```sh
 # 1. edit either:
@@ -113,7 +113,7 @@ home-manager generations   # list past builds; roll back by running an older one
 > machine resolves `nixpkgs` to whatever is current that day.
 
 > **Mental model (for the Nix-unfamiliar):** `flake.nix` lists the pinned inputs
-> and names the host configs; the `home/*.nix` files *declare what you want*
+> and names the host configs; the `home/*.nix` files _declare what you want_
 > (packages, programs, settings); `switch` makes your `$HOME` match that
 > declaration. You describe the end state — Nix works out the steps. Editing a
 > `.nix` file changes nothing until you run `switch` again.
