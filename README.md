@@ -54,6 +54,22 @@ home-manager switch --flake ~/git/dotfiles#romance@wsl
 > Edit the `username` / `homeDirectory` in `flake.nix` if your login differs.
 > Validate without activating: `nix flake check`.
 
+### machine-local config from templates (`copy-examples.sh`)
+
+A few configs are deliberately **not** managed by Nix — each host edits its own
+copy (e.g. `local.nix`, `~/.config/tmux/sessionizer.toml`). Their tracked
+`*.example` templates are materialized at the right path by one convenience
+script:
+
+```sh
+./copy-examples.sh           # create any missing config from its template
+./copy-examples.sh --force   # overwrite existing configs from the templates
+```
+
+It skips files that already exist (so it's safe to re-run), creates parent
+directories, and warns if a tracked `*.example` has no destination mapped yet —
+add new templates to the `MAP` table near the top of the script.
+
 ### migrating a machine that already has dotfiles
 
 Home Manager **never overwrites files it didn't create**. If `~/.zshrc`,
@@ -114,9 +130,12 @@ from a TOML config. It uses a **default + optional override** model:
   precedence. It is **not** Nix-managed (machine-local, like `local.nix`), so
   it's yours to create and edit freely.
 
-To customize, copy the example and edit the copy:
+To customize, create the override and edit it. Either run the convenience
+script (see below) or copy the example by hand:
 
 ```sh
+./copy-examples.sh                                   # creates it if missing
+# …or manually:
 cp ~/.config/tmux/sessionizer.toml.example ~/.config/tmux/sessionizer.toml
 $EDITOR ~/.config/tmux/sessionizer.toml
 ```
