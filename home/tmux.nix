@@ -31,12 +31,15 @@ in
     terminal = "tmux-256color";
     historyLimit = 50000;
 
-    # NOTE: tmux-continuum is intentionally NOT in the `plugins` list. HM emits the
-    # plugin `run-shell` lines BEFORE extraConfig, and tmux-nova's load resets
-    # `status-right` (nova.sh: `set-option -g status-right ""`) — which would wipe
-    # continuum's `#(continuum_save.sh)` auto-save hook. continuum is instead loaded
-    # at the very END of extraConfig, so it runs after nova and after its
-    # @continuum-* options are set (continuum reads them at load time).
+    # NOTE: tmux-nova and tmux-continuum are intentionally NOT in the `plugins`
+    # list. HM emits a plugin's `run-shell` BEFORE extraConfig, but BOTH plugins
+    # read their `@nova-*` / `@continuum-*` options at load time — and those
+    # options live in extraConfig. Loaded from the plugins list, nova would run
+    # before its options exist and apply DEFAULT styling (colors only "stick"
+    # after a manual reload, once the options are already in server state). They
+    # are instead loaded at the END of extraConfig, after their options are set:
+    # nova first, then continuum (which must follow nova because nova.sh resets
+    # `status-right`, wiping continuum's `#(continuum_save.sh)` auto-save hook).
     plugins = with pkgs.tmuxPlugins; [
       {
         plugin = resurrect;
@@ -56,7 +59,6 @@ in
       }
       yank
       tmux-fzf
-      tmux-nova
     ];
 
     extraConfig = ''
@@ -126,19 +128,20 @@ in
       bind X kill-session
       set-hook -g after-new-session 'resize-pane -D 1'
 
-      # aoe (agent-of-empires) pins `window-size manual` (+ a fixed default-size)
-      # on its agent sessions so its small embedded live-mode viewport stays
-      # stable. The catch: when you toggle live -> tmux mode the SAME client just
-      # grows to the full terminal — no re-attach — so with `manual` the window
-      # stays pinned at the small size and you get whitespace around the agent.
-      # The event that fires on that grow is client-resized (NOT client-attached,
-      # which is why hooking only attach did nothing). For aoe_* sessions, on any
-      # of attach / session-switch / resize, restore auto-sizing (latest = follow
-      # the active client) and force an immediate resize. Other sessions are
-      # untouched.
-      set-hook -g client-attached 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size latest ; resize-window -A"'
-      set-hook -g client-session-changed 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size latest ; resize-window -A"'
-      set-hook -g client-resized 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size latest ; resize-window -A"'
+      # aoe (agent-of-empires) pins each agent *window* to `window-size manual` at
+      # its small embedded live-mode viewport, so attaching/growing a full client
+      # leaves whitespace on the right + bottom (a freshly-made window in the same
+      # session is full-size — proof it's per-window manual pinning, not the client).
+      #
+      # Fix: for aoe_* sessions, on attach / session-switch / resize, flip the
+      # window to `largest` and force a resize. It MUST be `largest`, not `latest`:
+      # aoe keeps its small live-mode client attached alongside yours and it is the
+      # most-recently-used one (it constantly redraws), so `latest` resolves to the
+      # SMALL client and the whitespace stays — `largest` always picks your full
+      # terminal. Other sessions are untouched.
+      set-hook -g client-attached 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size largest ; resize-window -A"'
+      set-hook -g client-session-changed 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size largest ; resize-window -A"'
+      set-hook -g client-resized 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size largest ; resize-window -A"'
 
       # --- Status bar ---
       set -g status on
@@ -199,6 +202,14 @@ in
       set -g @nova-segment-time-colors "#191719 #7E7480"
       set -g @nova-segments-0-left "session"
       set -g @nova-segments-0-right "time"
+
+      # Load nova HERE, after its @nova-* options (see the note above the plugins
+      # list). From the plugins list it runs before extraConfig sets the options,
+      # so on a fresh server it reads unset options and paints default styling —
+      # the muted-pastel colors only appear after a manual `source-file` reload,
+      # once the options are already in server state. Loading after the options
+      # makes the colors correct on first attach / server start.
+      run-shell ${pkgs.tmuxPlugins.tmux-nova}/share/tmux-plugins/tmux-nova/nova.tmux
 
       # --- continuum: load LAST (see the note above the plugins list) ---
       # Loading here — after tmux-nova has built status-right and after the
