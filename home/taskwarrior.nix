@@ -81,9 +81,11 @@ in
       "color.header" = "color139"; # lavender
       "color.label" = "color144"; # yellow
       "color.label.sort" = "color144";
-      "color.footnote" = "color244"; # dim
-      "color.project.none" = "color244";
-      "color.tag.none" = "color244";
+      "color.footnote" = "color244"; # dim — just the trailing summary line
+      # NB: do NOT set color.tag.none / color.project.none — those match EVERY
+      # untagged / projectless task (i.e. most of the list) and, ranking above
+      # due/overdue in rule.precedence, would wash the whole table out to a dim
+      # near-transparent gray. Leave such rows at the terminal's default fg.
       "color.completed" = "color240"; # faint
       "color.deleted" = "color240";
       "color.alternate" = "on color235"; # subtle alt-row background
