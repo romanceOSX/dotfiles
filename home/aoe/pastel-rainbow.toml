@@ -1,0 +1,41 @@
+# aoe (agent-of-empires) custom theme — muted pastel rainbow.
+# Same palette as the rest of the terminal (rainbow-prompt / eza / btop /
+# delta / taskwarrior), spread across aoe's semantic slots. aoe renders in
+# truecolor, so these are exact hexes (no 256-colour mapping needed).
+#
+# Palette: rose #C58EA7 · peach #C4A07A · yellow #AAAA7E · sage #8EAA8E
+#          teal #7EAAAA · slate #7E9DAA · lavender #9D8EBB
+# Neutrals: bg #191719 (matches tmux menu) · text #C8C0C5 · dim #5A5058
+#
+# Apply with `[theme] name = "pastel-rainbow"` in
+# ~/.config/agent-of-empires/config.toml (or pick it in aoe's Settings).
+
+background = "#191719"
+border = "#2F2B30"              # matches tmux pane-border
+terminal_border = "#7EAAAA"     # teal
+selection = "#2A2428"           # subtle row highlight
+session_selection = "#3A3340"   # selected-session highlight (tmux div_line)
+title = "#9D8EBB"               # lavender
+text = "#C8C0C5"
+dimmed = "#5A5058"
+hint = "#7E7480"
+running = "#8EAA8E"             # sage — agent working (green = go)
+waiting = "#C4A07A"             # peach — needs input (amber = attention)
+fresh_idle = "#7E9DAA"          # slate
+idle = "#5A5058"                # dim
+error = "#C58EA7"               # rose (muted red)
+terminal_active = "#8EAA8E"     # sage — focused terminal
+group = "#9D8EBB"               # lavender
+search = "#C4A07A"              # peach
+accent = "#C58EA7"              # rose
+diff_add = "#8EAA8E"            # sage
+diff_delete = "#C58EA7"         # rose
+diff_modified = "#C4A07A"       # peach
+diff_header = "#7E9DAA"         # slate
+help_key = "#C4A07A"            # peach
+branch = "#7EAAAA"              # teal
+sandbox = "#9D8EBB"             # lavender
+appearance = "dark"
+
+[syntax]
+shiki_theme = "rose-pine"       # pastel-ish dark syntax highlighting
