@@ -11,7 +11,7 @@
 # ~/.config/agent-of-empires/config.toml (or pick it in aoe's Settings).
 
 background = "#191719"
-border = "#7E7480"              # muted mauve-gray — visible against the dark bg (was #2F2B30, too dark)
+border = "#6A636B"              # muted mauve-gray — visible but soft against the dark bg
 terminal_border = "#7EAAAA"     # teal
 selection = "#2A2428"           # subtle row highlight
 session_selection = "#3A3340"   # selected-session highlight (tmux div_line)
