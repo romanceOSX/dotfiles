@@ -126,13 +126,19 @@ in
       bind X kill-session
       set-hook -g after-new-session 'resize-pane -D 1'
 
-      # aoe (agent-of-empires) creates its agent sessions with `window-size
-      # manual` + a fixed `default-size` (sized to its embedded live-mode view),
-      # so attaching a full-screen client doesn't resize the window and you get
-      # whitespace around the agent. For aoe_* sessions only, restore auto-sizing
-      # (latest = follow the active client) and force an immediate resize on
-      # attach. Other sessions are untouched.
+      # aoe (agent-of-empires) pins `window-size manual` (+ a fixed default-size)
+      # on its agent sessions so its small embedded live-mode viewport stays
+      # stable. The catch: when you toggle live -> tmux mode the SAME client just
+      # grows to the full terminal — no re-attach — so with `manual` the window
+      # stays pinned at the small size and you get whitespace around the agent.
+      # The event that fires on that grow is client-resized (NOT client-attached,
+      # which is why hooking only attach did nothing). For aoe_* sessions, on any
+      # of attach / session-switch / resize, restore auto-sizing (latest = follow
+      # the active client) and force an immediate resize. Other sessions are
+      # untouched.
       set-hook -g client-attached 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size latest ; resize-window -A"'
+      set-hook -g client-session-changed 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size latest ; resize-window -A"'
+      set-hook -g client-resized 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size latest ; resize-window -A"'
 
       # --- Status bar ---
       set -g status on
