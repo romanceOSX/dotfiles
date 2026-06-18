@@ -14,10 +14,16 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Agent of Empires — session manager for AI coding agents (Rust).
+    # Consumed as a flake package; `aoe` is wired into home.packages.
+    agent-of-empires = {
+      url = "github:agent-of-empires/agent-of-empires";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
-    { nixpkgs, nixpkgs-neovim, home-manager, ... }:
+    { nixpkgs, nixpkgs-neovim, home-manager, agent-of-empires, ... }:
     let
       # Machine-local identity — each host defines local.nix once (gitignored).
       # Falls back to sensible defaults if missing.
@@ -44,6 +50,8 @@
               inherit system;
               config.allowUnfree = true;
             };
+            # Agent of Empires `aoe` binary, built from its own flake.
+            aoe = agent-of-empires.packages.${system}.default;
             inherit isWSL;
           };
           modules = [
