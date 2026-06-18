@@ -129,19 +129,25 @@ in
       set-hook -g after-new-session 'resize-pane -D 1'
 
       # aoe (agent-of-empires) pins each agent *window* to `window-size manual` at
-      # its small embedded live-mode viewport, so attaching/growing a full client
-      # leaves whitespace on the right + bottom (a freshly-made window in the same
-      # session is full-size — proof it's per-window manual pinning, not the client).
+      # a fixed small size, so it leaves whitespace on the right + bottom when the
+      # client is bigger (a freshly-made window in the same session is full-size —
+      # proof it's per-window manual pinning, not the client).
       #
-      # Fix: for aoe_* sessions, on attach / session-switch / resize, flip the
-      # window to `largest` and force a resize. It MUST be `largest`, not `latest`:
-      # aoe keeps its small live-mode client attached alongside yours and it is the
-      # most-recently-used one (it constantly redraws), so `latest` resolves to the
-      # SMALL client and the whitespace stays — `largest` always picks your full
-      # terminal. Other sessions are untouched.
+      # Fix: for aoe_* sessions, flip the active window to `largest` and force a
+      # resize. `largest` (not `latest`): aoe keeps a small live-mode client
+      # attached and it is the most-recently-used one (constant redraw), so
+      # `latest` resolves to the SMALL client. `largest` always picks your full
+      # terminal.
+      #
+      # The events matter as much as the option. aoe uses ONE client and hops it
+      # between sessions/windows (switch-client / select-window), not fresh
+      # attaches — so we must fire on window changes too. session-window-changed
+      # is the key one: selecting the pinned agent window otherwise triggers NO
+      # resize and the window stays small (the bug). Other sessions are untouched.
       set-hook -g client-attached 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size largest ; resize-window -A"'
       set-hook -g client-session-changed 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size largest ; resize-window -A"'
       set-hook -g client-resized 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size largest ; resize-window -A"'
+      set-hook -g session-window-changed 'if -F "#{m:aoe_*,#{session_name}}" "set -w window-size largest ; resize-window -A"'
 
       # --- Status bar ---
       set -g status on
@@ -180,7 +186,7 @@ in
       #     entries here are ADDED to it. A leading `~` relaxes name matching so
       #     the full binary path saved in the snapshot still matches.
       set -g @resurrect-capture-pane-contents 'on'
-      set -g @resurrect-processes 'ssh "~lazygit" "~btop" "~yazi" "~taskwarrior-tui" "~claude" "~copilot"'
+      set -g @resurrect-processes 'ssh "~lazygit" "~btop" "~yazi" "~taskwarrior-tui" "~claude" "~copilot" "~aoe"'
 
       # --- sessionx (options harmless if the plugin isn't installed) ---
       set -g @sessionx-bind 'o'
