@@ -38,7 +38,22 @@ in
     # at the very END of extraConfig, so it runs after nova and after its
     # @continuum-* options are set (continuum reads them at load time).
     plugins = with pkgs.tmuxPlugins; [
-      resurrect
+      {
+        plugin = resurrect;
+        # Move resurrect's manual save/restore OFF the Ctrl keys. The prefix is
+        # C-a, so holding Ctrl a few ms too long while pressing `s` (session
+        # list) or `r` (reload) sends C-s / C-r — resurrect's DEFAULT save and
+        # restore keys — silently firing a save/restore. The slip is timing- and
+        # terminal-dependent, so it shows up intermittently on WSL but not macOS.
+        # Rebinding to `prefix S` / `prefix R` frees C-s and C-r (which extraConfig
+        # then repurposes to the intended actions). This MUST be set here, before
+        # resurrect.tmux runs: resurrect reads these at bind time, and HM emits a
+        # plugin's run-shell BEFORE extraConfig (where @resurrect-dir etc. live).
+        extraConfig = ''
+          set -g @resurrect-save 'S'
+          set -g @resurrect-restore 'R'
+        '';
+      }
       yank
       tmux-fzf
       tmux-nova
@@ -66,9 +81,13 @@ in
       set -as terminal-overrides ',*:Setulc=\E[58::2::%p1%{65536}%/%d::%p1%{256}%/%{255}%&%d::%p1%{255}%&%d%;m'
 
       # --- Panes ---
-      bind - split-window -v -c "#{pane_current_path}"
-      bind | split-window -h -c "#{pane_current_path}"
-      bind c new-window -c "#{pane_current_path}"
+      # New windows/splits route through tmux-remote-shell so that, inside a
+      # remote (@ssh_host) session, a new shell re-enters the SAME host over ssh
+      # instead of dropping back to a local shell. In a local session it behaves
+      # exactly like the stock new-window / split-window (same start dir).
+      bind - run-shell "~/.local/bin/tmux-remote-shell vsplit"
+      bind | run-shell "~/.local/bin/tmux-remote-shell hsplit"
+      bind c run-shell "~/.local/bin/tmux-remote-shell window"
       unbind '"'
       unbind %
 
@@ -112,6 +131,13 @@ in
 
       # --- Utilities ---
       bind r source-file ${config.xdg.configHome}/tmux/tmux.conf \; display-message "Config reloaded!"
+      # resurrect's manual save/restore now live on `prefix S` / `prefix R` (set
+      # before the plugin loads, above). That frees C-s / C-r, which were firing
+      # accidental save/restore when Ctrl lingered from the C-a prefix into `s` /
+      # `r`. Repurpose the freed Ctrl keys to the action the user actually meant,
+      # so even a fumbled `prefix C-s` opens the session list (and C-r reloads).
+      bind C-s choose-tree -Zs
+      bind C-r source-file ${config.xdg.configHome}/tmux/tmux.conf \; display-message "Config reloaded!"
       bind ? display-popup -E -w 80% -h 60% "tmux list-keys | bat -l bash --color=always --style=plain | fzf --ansi ${fzfNav}"
       bind t display-popup -E -w 30% -h 40% "tmux-launcher"
       bind T display-popup -E -w 90% -h 90% "taskwarrior-tui"
