@@ -109,6 +109,11 @@
             pkgs.iproute2 # `ip` / `ss` — Linux-native, not available on macOS
             # openssh provides `sshd` for the WSL ssh service (remote access into
             # this machine). macOS ships its own sshd, so this is Linux-only.
-            pkgs.openssh
+            # Use the GSSAPI-enabled build: this package's `ssh` shadows the
+            # system client on PATH, and the corporate /etc/ssh/ssh_config sets
+            # `GSSAPIAuthentication yes`. A non-GSSAPI openssh compiles that
+            # keyword out and prints "Unsupported option gssapiauthentication"
+            # on every ssh/scp/git-over-ssh call; the gssapi build recognizes it.
+            pkgs.openssh_gssapi
         ];
 }
