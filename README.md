@@ -26,7 +26,7 @@ configs as native `programs.*` modules.
 
 ### layout
 
-- `flake.nix` — entry point; defines `romance@osx`, `romance@wsl`, `romance@debian`
+- `flake.nix` — entry point; defines hosts `osx`, `wsl`, `debian`, `pi`, `work`
 - `home/` — the Home Manager modules
   - `default.nix` — imports + stateVersion
   - `packages.nix` — toolchains (Node/Rust/clang) + CLI utilities
@@ -45,10 +45,10 @@ curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix 
 git clone <repo> ~/git/dotfiles && cd ~/git/dotfiles
 
 # 3. activate (pick the host matching the machine; adjust username in flake.nix)
-nix run home-manager/master -- switch --flake .#romance@wsl       # or romance@debian / romance@osx
+nix run home-manager/master -- switch --flake .#wsl       # or debian / osx
 
 # subsequent updates
-home-manager switch --flake ~/git/dotfiles#romance@wsl
+home-manager switch --flake ~/git/dotfiles#wsl
 ```
 
 > Edit the `username` / `homeDirectory` in `flake.nix` if your login differs.
@@ -77,7 +77,7 @@ Home Manager **never overwrites files it didn't create**. If `~/.zshrc`,
 error instead of clobbering them. Let HM move the conflicts aside as it links:
 
 ```sh
-home-manager switch -b backup --flake .#romance@<host>
+home-manager switch -b backup --flake .#<host>
 ```
 
 `-b backup` renames each existing file to `<name>.backup` before linking, so
@@ -97,7 +97,7 @@ always: edit the _source_ in this repo, then re-activate.
 #      - a .nix module under home/      (e.g. add a package to home/packages.nix)
 #      - or a referenced config file    (home/yazi/theme.toml, home/starship.toml, …)
 # 2. apply it:
-home-manager switch --flake .#romance@<host>
+home-manager switch --flake .#<host>     # host: osx | wsl | debian | pi | work
 ```
 
 Useful commands:

@@ -37,7 +37,7 @@ See `README.md` for full setup and migration details.
 
 - Edit a `home/*.nix` module or a referenced config file, then run:
   ```sh
-  home-manager switch --flake .#romance@<host>   # host: mac | wsl | debian
+  home-manager switch --flake .#<host>   # host: osx | wsl | debian | pi | work
   ```
 - Validate Nix changes without applying: `nix flake check`.
 - **Commit `flake.lock`** when it changes — it pins exact package versions.
