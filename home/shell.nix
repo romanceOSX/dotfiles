@@ -39,9 +39,6 @@
   # ---------------------------------------------------------------------------
   programs.zsh = {
     enable = true;
-    dotDir = "${config.xdg.configHome}/zsh";
-    enableCompletion = true; # runs compinit (needed by fzf-tab)
-    defaultKeymap = "viins"; # `set -o vi`, start in insert mode
 
     # --- WSL <-> Windows interop for ssh sessions ---------------------------
     # WSL only appends the Windows PATH (and exports WSL_INTEROP) for shells it
@@ -63,6 +60,9 @@
         export PATH
       fi
     '';
+    dotDir = "${config.xdg.configHome}/zsh";
+    enableCompletion = true; # runs compinit (needed by fzf-tab)
+    defaultKeymap = "viins"; # `set -o vi`, start in insert mode
 
     # LINUX ONLY: if the login shell is system zsh, re-exec into nix's zsh so
     # nix-built modules (fzf-tab) load against the matching glibc. The guard uses
