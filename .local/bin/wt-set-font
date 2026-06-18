@@ -1,0 +1,102 @@
+#!/usr/bin/env sh
+
+# Set the Windows Terminal font face from WSL, portably across machines.
+#
+# Windows Terminal settings live on the Windows host (not in nix/Home Manager),
+# and its settings.json is full of machine-specific profile GUIDs, so copying
+# the whole file between machines is fragile. Instead, this patches *only* the
+# font face with jq: it rewrites profiles.defaults.font.face (so every profile
+# inherits it) and migrates any per-profile override that still points at the
+# old font. That makes it safe to run on any WSL/Windows box.
+#
+# Why this exists: a Nerd Fonts *v2* patch lacks the v3 Material Design Icons
+# plane (U+F0001+), so v3-aware tools (lazygit nerdFontsVersion=3, yazi, the
+# prompt) render those glyphs as the "?-in-a-diamond" replacement char. The
+# default face below is the v3 "SFMono Nerd Font" produced by the companion
+# sfmono-nerd-install script; an older "JetBrainsMono NF"/"...Nerd Font" name is
+# migrated to it. (Note: Windows installs Nerd Fonts under either the long
+# "... Nerd Font" or the short "... NF" family name depending on the installer,
+# so set the face to whatever name is actually installed on the host.)
+#
+# Usage:
+#   wt-set-font                       # set new="SFMono Nerd Font", migrate old="JetBrainsMono NF"
+#   wt-set-font "<NewFace>"           # set new face, migrate the default old face
+#   wt-set-font "<NewFace>" "<Old>"   # set new face, migrate the given old face
+#
+# Requires: WSL, Windows interop (powershell.exe), and jq. WSL only.
+
+set -e
+
+NEW_FACE=${1:-"SFMono Nerd Font"}
+OLD_FACE=${2:-"JetBrainsMono NF"}
+
+if ! grep -qi microsoft /proc/version 2>/dev/null; then
+    echo "error: this only applies to WSL." >&2
+    exit 1
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+    echo "error: jq not found on PATH." >&2
+    exit 1
+fi
+
+# Resolve the Windows LOCALAPPDATA and translate it to a WSL path so we can find
+# settings.json regardless of the Windows username.
+localappdata_win=$(powershell.exe -NoProfile -Command '$env:LOCALAPPDATA' 2>/dev/null | tr -d '\r')
+if [ -z "$localappdata_win" ]; then
+    echo "error: could not read LOCALAPPDATA from the Windows host (is interop enabled?)." >&2
+    exit 1
+fi
+localappdata=$(wslpath -u "$localappdata_win" 2>/dev/null)
+
+# Candidate locations: Store (stable/preview) and unpackaged installs.
+settings=""
+for cand in \
+    "$localappdata/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json" \
+    "$localappdata/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState/settings.json" \
+    "$localappdata/Microsoft/Windows Terminal/settings.json"; do
+    if [ -f "$cand" ]; then
+        settings="$cand"
+        break
+    fi
+done
+
+if [ -z "$settings" ]; then
+    echo "error: could not locate Windows Terminal settings.json under $localappdata." >&2
+    exit 1
+fi
+
+tmp=$(mktemp)
+if ! jq --arg new "$NEW_FACE" --arg old "$OLD_FACE" '
+        .profiles.defaults.font.face = $new
+        | (.profiles.list[]?.font.face) |= (if . == $old then $new else . end)
+    ' "$settings" > "$tmp" 2>/dev/null; then
+    rm -f "$tmp"
+    echo "error: failed to parse/patch $settings (is it valid JSON?)." >&2
+    exit 1
+fi
+
+# Bail out if jq produced nothing (defensive).
+if [ ! -s "$tmp" ]; then
+    rm -f "$tmp"
+    echo "error: produced empty output; leaving settings.json untouched." >&2
+    exit 1
+fi
+
+# No-op if nothing changed, so re-running is cheap and quiet.
+if cmp -s "$tmp" "$settings"; then
+    rm -f "$tmp"
+    echo "Windows Terminal font already set to \"$NEW_FACE\"; nothing to do."
+    echo "  $settings"
+    exit 0
+fi
+
+backup="$settings.bak-$(date +%Y%m%d-%H%M%S)"
+cp "$settings" "$backup"
+cp "$tmp" "$settings"
+rm -f "$tmp"
+
+echo "Set Windows Terminal font to \"$NEW_FACE\" (migrated any \"$OLD_FACE\")."
+echo "  file:   $settings"
+echo "  backup: $backup"
+echo "Open a new tab/pane (or restart Windows Terminal) to see the change."

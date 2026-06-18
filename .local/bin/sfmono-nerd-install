@@ -1,0 +1,104 @@
+#!/usr/bin/env sh
+
+# Build and install a Nerd Fonts v3 patched "SFMono Nerd Font" on the Windows
+# host, from WSL, reproducibly.
+#
+# Why this exists: Apple's SF Mono is proprietary and can't be redistributed, so
+# it isn't installable via Nix/Home Manager. The older community "SFMono ... Nerd
+# Font Complete" builds are Nerd Fonts *v2* patches that lack the v3 Material
+# Design Icons plane (U+F0001+), so v3-aware tools (lazygit nerdFontsVersion=3,
+# yazi, the prompt) render those glyphs as the "?-in-a-diamond" replacement char.
+#
+# This script fetches Apple's official SF Mono, patches the core terminal weights
+# (Regular/Bold/Italic/BoldItalic) with the *v3* nerd-font-patcher (pinned via
+# nixpkgs), installs them per-user (no admin), and registers them in HKCU. The
+# result is a "SFMono Nerd Font" family with full v3 glyph coverage.
+#
+# Idempotent: re-running re-patches and overwrites. Pass --set-wt to also point
+# Windows Terminal at the font via wt-set-font.
+#
+# Requires: WSL, Windows interop (powershell.exe), Nix (flakes), curl.
+
+set -eu
+
+SET_WT=0
+[ "${1:-}" = "--set-wt" ] && SET_WT=1
+
+if ! grep -qi microsoft /proc/version 2>/dev/null; then
+    echo "error: this only applies to WSL." >&2
+    exit 1
+fi
+for c in nix curl powershell.exe wslpath; do
+    command -v "$c" >/dev/null 2>&1 || { echo "error: $c not found on PATH." >&2; exit 1; }
+done
+
+FAMILY="SFMono Nerd Font"
+DMG_URL="https://devimages-cdn.apple.com/design/resources/download/SF-Mono.dmg"
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+echo ">> fetching build tools from nixpkgs (p7zip, nerd-font-patcher)..."
+tools=$(nix build --no-link --print-out-paths nixpkgs#p7zip nixpkgs#nerd-font-patcher)
+SEVENZ=""
+NFP=""
+for p in $tools; do
+    [ -x "$p/bin/7z" ] && SEVENZ="$p/bin/7z"
+    [ -x "$p/bin/nerd-font-patcher" ] && NFP="$p/bin/nerd-font-patcher"
+done
+[ -n "$SEVENZ" ] && [ -n "$NFP" ] || { echo "error: could not resolve 7z / nerd-font-patcher from nix." >&2; exit 1; }
+
+echo ">> downloading Apple SF Mono..."
+curl -fsSL -o "$work/SF-Mono.dmg" "$DMG_URL"
+
+echo ">> extracting dmg -> pkg -> otf..."
+"$SEVENZ" x "$work/SF-Mono.dmg" -y -o"$work/dmg" >/dev/null
+pkg=$(find "$work/dmg" -iname '*.pkg' | head -1)
+[ -n "$pkg" ] || { echo "error: no .pkg inside dmg." >&2; exit 1; }
+"$SEVENZ" x "$pkg" -y -o"$work/pkg" >/dev/null
+"$SEVENZ" x "$work/pkg/Payload~" -y -o"$work/payload" >/dev/null
+src="$work/payload/Library/Fonts"
+[ -d "$src" ] || { echo "error: SF Mono fonts not found in payload." >&2; exit 1; }
+
+echo ">> patching core weights to Nerd Fonts v3 (this takes a minute or two)..."
+mkdir -p "$work/patched"
+for w in Regular Bold RegularItalic BoldItalic; do
+    f="$src/SF-Mono-$w.otf"
+    [ -f "$f" ] || { echo "  warn: missing $f, skipping"; continue; }
+    echo "   - $w"
+    "$NFP" "$f" --complete --outputdir "$work/patched" >/dev/null 2>&1
+done
+
+echo ">> installing per-user and registering in HKCU..."
+localappdata_win=$(powershell.exe -NoProfile -Command '$env:LOCALAPPDATA' 2>/dev/null | tr -d '\r')
+fonts_dir=$(wslpath -u "$localappdata_win")/Microsoft/Windows/Fonts
+mkdir -p "$fonts_dir"
+cp -f "$work"/patched/*.otf "$fonts_dir/"
+
+powershell.exe -NoProfile -Command '
+$dir = Join-Path $env:LOCALAPPDATA "Microsoft\Windows\Fonts"
+$key = "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts"
+$map = @{
+  "SFMono Nerd Font (OpenType)"             = "SFMonoNerdFont-Regular.otf"
+  "SFMono Nerd Font Bold (OpenType)"        = "SFMonoNerdFont-Bold.otf"
+  "SFMono Nerd Font Italic (OpenType)"      = "SFMonoNerdFont-Italic.otf"
+  "SFMono Nerd Font Bold Italic (OpenType)" = "SFMonoNerdFont-BoldItalic.otf"
+}
+foreach ($name in $map.Keys) {
+  $p = Join-Path $dir $map[$name]
+  if (Test-Path $p) { New-ItemProperty -Path $key -Name $name -Value $p -PropertyType String -Force | Out-Null }
+}
+' >/dev/null 2>&1
+
+echo "Installed \"$FAMILY\" (Nerd Fonts v3) for the current Windows user."
+
+if [ "$SET_WT" -eq 1 ]; then
+    if command -v wt-set-font >/dev/null 2>&1; then
+        echo ">> pointing Windows Terminal at \"$FAMILY\"..."
+        wt-set-font "$FAMILY"
+    else
+        echo "note: wt-set-font not on PATH; set Windows Terminal font to \"$FAMILY\" manually."
+    fi
+else
+    echo "Run 'wt-set-font \"$FAMILY\"' (or re-run with --set-wt) to use it in Windows Terminal."
+fi
+echo "Open a new tab/pane (or restart Windows Terminal) to see the change."

@@ -1,0 +1,456 @@
+#!/usr/bin/env python3
+"""copilot-sessions — a friendly list of GitHub Copilot CLI sessions and their state.
+
+State is derived from the on-disk session store under ~/.copilot:
+  - open   : a live `copilot` process holds the session (an inuse.<pid>.lock
+             whose PID is still running). This is an active session.
+  - stale  : an inuse.<pid>.lock exists but its PID is gone (a session that was
+             killed/crashed without cleaning up — "suspended"/orphaned).
+  - idle   : no lock; the session is closed but fully resumable.
+
+Resume any session with:  copilot --resume=<id>   (id prefix of 7+ chars works)
+
+Usage:
+  copilot-sessions [options]
+
+Options:
+  -t, --tui            Launch the interactive TUI (k9s-style live dashboard).
+  -a, --all            Show every session (default: 30 most recent).
+  -n, --limit N        Show the N most recent sessions.
+  --open               Only show open (live) sessions.
+  --idle               Only show idle (closed, resumable) sessions.
+  --stale              Only show stale (orphaned-lock) sessions.
+  -r, --repo SUBSTR    Only show sessions whose repository matches SUBSTR.
+      --json           Emit JSON instead of a table.
+      --no-color       Disable ANSI colors.
+  -h, --help           Show this help.
+
+TUI keys:
+  j/k or ↓/↑   move      Enter  resume session      f  cycle state filter
+  /            filter    x      delete stale lock    K  kill live session
+  r            refresh   g/G    top / bottom         q  quit
+"""
+import sqlite3, os, glob, re, json, sys, argparse
+from datetime import datetime, timezone
+
+HOME = os.path.expanduser("~/.copilot")
+SSDIR = os.path.join(HOME, "session-state")
+DB = os.path.join(HOME, "session-store.db")
+
+STATE_ORDER = {"open": 0, "stale": 1, "idle": 2}
+COLORS = {"open": "\033[32m", "stale": "\033[33m", "idle": "\033[90m"}
+BADGE = {"open": "● open ", "stale": "⚠ stale", "idle": "○ idle "}
+RESET = "\033[0m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+
+
+def pid_alive(pid: int) -> bool:
+    return os.path.exists(f"/proc/{pid}")
+
+
+def load_metadata():
+    meta, turns, first_msg = {}, {}, {}
+    if not os.path.exists(DB):
+        return meta, turns, first_msg
+    try:
+        c = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
+        for sid, cwd, repo, branch, summ, upd in c.execute(
+            "select id,cwd,repository,branch,summary,updated_at from sessions"
+        ):
+            meta[sid] = dict(cwd=cwd, repo=repo, branch=branch,
+                             summary=summ, updated=upd or "")
+        for sid, n in c.execute(
+            "select session_id,count(*) from turns group by session_id"
+        ):
+            turns[sid] = n
+        for sid, msg in c.execute(
+            "select session_id,user_message from turns where turn_index=0"
+        ):
+            if msg:
+                first_msg[sid] = msg
+    except sqlite3.Error:
+        pass
+    return meta, turns, first_msg
+
+
+def parse_state(session_dir):
+    locks = glob.glob(os.path.join(session_dir, "inuse.*.lock"))
+    pids = []
+    for f in locks:
+        m = re.search(r"inuse\.(\d+)\.lock", f)
+        if m:
+            pids.append(int(m.group(1)))
+    if any(pid_alive(p) for p in pids):
+        return "open", [p for p in pids if pid_alive(p)]
+    if pids:
+        return "stale", pids
+    return "idle", []
+
+
+def rel_time(iso: str) -> str:
+    if not iso:
+        return "unknown"
+    try:
+        t = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except ValueError:
+        return iso
+    delta = datetime.now(timezone.utc) - t
+    s = int(delta.total_seconds())
+    if s < 0:
+        s = 0
+    if s < 60:
+        return f"{s}s ago"
+    if s < 3600:
+        return f"{s // 60}m ago"
+    if s < 86400:
+        return f"{s // 3600}h ago"
+    if s < 86400 * 30:
+        return f"{s // 86400}d ago"
+    return t.strftime("%Y-%m-%d")
+
+
+def title_for(sid, m, first_msg):
+    summ = (m.get("summary") or "").strip()
+    if summ:
+        return summ.splitlines()[0]
+    msg = (first_msg.get(sid) or "").strip()
+    if msg:
+        return msg.splitlines()[0]
+    return ""
+
+
+def collect():
+    meta, turns, first_msg = load_metadata()
+    rows = []
+    for d in glob.glob(os.path.join(SSDIR, "*")):
+        if not os.path.isdir(d):
+            continue
+        sid = os.path.basename(d)
+        state, pids = parse_state(d)
+        m = meta.get(sid, {})
+        rows.append(dict(
+            id=sid,
+            state=state,
+            pids=pids,
+            updated=m.get("updated", ""),
+            repo=m.get("repo") or "",
+            branch=m.get("branch") or "",
+            cwd=m.get("cwd") or "",
+            turns=turns.get(sid, 0),
+            title=title_for(sid, m, first_msg),
+        ))
+    rows.sort(key=lambda r: (STATE_ORDER.get(r["state"], 9), r["updated"] == ""))
+    rows.sort(key=lambda r: r["updated"], reverse=True)
+    return rows
+
+
+def truncate(s, n):
+    s = s or ""
+    return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def session_lock_files(sid):
+    return glob.glob(os.path.join(SSDIR, sid, "inuse.*.lock"))
+
+
+def delete_stale_locks(sid):
+    """Remove orphaned inuse.<pid>.lock files (PID no longer running)."""
+    removed = 0
+    for f in session_lock_files(sid):
+        m = re.search(r"inuse\.(\d+)\.lock", f)
+        if m and not pid_alive(int(m.group(1))):
+            try:
+                os.remove(f)
+                removed += 1
+            except OSError:
+                pass
+    return removed
+
+
+def kill_session(pids):
+    """Terminate the live process(es) holding a session."""
+    import signal
+    killed = 0
+    for p in pids:
+        try:
+            os.kill(p, signal.SIGTERM)
+            killed += 1
+        except OSError:
+            pass
+    return killed
+
+
+def run_tui(args):
+    try:
+        import curses
+    except ImportError:
+        print("curses is unavailable; the TUI needs a real terminal.",
+              file=sys.stderr)
+        return 1
+
+    # Initial filter from CLI flags.
+    init_filter = "all"
+    if args.f_open:
+        init_filter = "open"
+    elif args.f_idle:
+        init_filter = "idle"
+    elif args.f_stale:
+        init_filter = "stale"
+
+    state = {
+        "filter": init_filter,
+        "repo": (args.repo or ""),
+        "sel": 0,
+        "top": 0,
+        "rows": [],
+        "msg": "",
+        "resume_id": None,
+    }
+    FILTERS = ["all", "open", "idle", "stale"]
+
+    def visible_rows():
+        rows = collect()
+        if state["filter"] != "all":
+            rows = [r for r in rows if r["state"] == state["filter"]]
+        if state["repo"]:
+            q = state["repo"].lower()
+            rows = [r for r in rows if q in (r["repo"] or "").lower()]
+        return rows
+
+    def loop(stdscr):
+        curses.curs_set(0)
+        stdscr.timeout(2000)  # auto-refresh every 2s
+        has_color = curses.has_colors()
+        if has_color:
+            curses.start_color()
+            curses.use_default_colors()
+            curses.init_pair(1, curses.COLOR_GREEN, -1)   # open
+            curses.init_pair(2, curses.COLOR_YELLOW, -1)  # stale
+            curses.init_pair(3, curses.COLOR_WHITE, -1)   # idle
+            curses.init_pair(4, curses.COLOR_CYAN, -1)    # header/help
+            curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_CYAN)  # selected
+        pair = {"open": 1, "stale": 2, "idle": 3}
+
+        last_refresh = 0
+        state["rows"] = visible_rows()
+
+        while True:
+            h, w = stdscr.getmaxyx()
+            rows = state["rows"]
+            n = len(rows)
+            if state["sel"] >= n:
+                state["sel"] = max(0, n - 1)
+            body_h = max(1, h - 4)
+            # keep selection visible
+            if state["sel"] < state["top"]:
+                state["top"] = state["sel"]
+            elif state["sel"] >= state["top"] + body_h:
+                state["top"] = state["sel"] - body_h + 1
+
+            stdscr.erase()
+            from collections import Counter
+            counts = Counter(r["state"] for r in collect())
+            title = (f" Copilot Sessions   "
+                     f"● {counts.get('open',0)} open   "
+                     f"○ {counts.get('idle',0)} idle   "
+                     f"⚠ {counts.get('stale',0)} stale ")
+            flt = f"[filter: {state['filter']}]"
+            if state["repo"]:
+                flt += f" [repo~{state['repo']}]"
+            head = (title + flt)[: w - 1]
+            stdscr.addstr(0, 0, head.ljust(w - 1),
+                          curses.color_pair(4) | curses.A_BOLD if has_color else curses.A_BOLD)
+            colhdr = f"{'STATE':6} {'UPDATED':9} {'REPO':22} {'BRANCH':12} {'ID':9} TITLE"
+            stdscr.addstr(1, 0, colhdr[: w - 1], curses.A_DIM if has_color else 0)
+
+            for i in range(state["top"], min(n, state["top"] + body_h)):
+                r = rows[i]
+                y = 2 + (i - state["top"])
+                badge = {"open": "●open ", "stale": "⚠stale", "idle": "○idle "}[r["state"]]
+                repo = truncate(r["repo"] or (r["cwd"].split("/")[-1] if r["cwd"] else ""), 22)
+                branch = truncate(r["branch"], 12)
+                title_t = truncate(r["title"], max(0, w - 64))
+                line = (f"{badge:6} {rel_time(r['updated']):9} {repo:22} "
+                        f"{branch:12} {r['id'][:8]} {title_t}")
+                line = line[: w - 1].ljust(w - 1)
+                if i == state["sel"]:
+                    attr = curses.color_pair(5) if has_color else curses.A_REVERSE
+                    stdscr.addstr(y, 0, line, attr)
+                else:
+                    attr = curses.color_pair(pair[r["state"]]) if has_color else 0
+                    stdscr.addstr(y, 0, line, attr)
+
+            help1 = ("j/k move  Enter resume  f filter  / repo  "
+                     "x del-stale  K kill  r refresh  q quit")
+            msg = state["msg"]
+            stdscr.addstr(h - 1, 0, (msg or help1)[: w - 1],
+                          (curses.color_pair(4) if has_color else 0))
+            stdscr.refresh()
+
+            ch = stdscr.getch()
+            state["msg"] = ""
+            if ch == -1:
+                state["rows"] = visible_rows()
+                continue
+            if ch in (ord("q"), 27):
+                return
+            elif ch in (curses.KEY_DOWN, ord("j")):
+                state["sel"] = min(n - 1, state["sel"] + 1) if n else 0
+            elif ch in (curses.KEY_UP, ord("k")):
+                state["sel"] = max(0, state["sel"] - 1)
+            elif ch == ord("g"):
+                state["sel"] = 0
+            elif ch == ord("G"):
+                state["sel"] = max(0, n - 1)
+            elif ch == ord("r"):
+                state["rows"] = visible_rows()
+                state["msg"] = "Refreshed."
+            elif ch == ord("f"):
+                idx = (FILTERS.index(state["filter"]) + 1) % len(FILTERS)
+                state["filter"] = FILTERS[idx]
+                state["sel"] = 0
+                state["rows"] = visible_rows()
+            elif ch == ord("/"):
+                curses.echo()
+                curses.curs_set(1)
+                stdscr.addstr(h - 1, 0, " repo filter (empty=clear): ".ljust(w - 1),
+                              curses.A_REVERSE)
+                stdscr.move(h - 1, 28)
+                try:
+                    val = stdscr.getstr(h - 1, 28, 40).decode("utf-8", "ignore").strip()
+                except Exception:
+                    val = ""
+                curses.noecho()
+                curses.curs_set(0)
+                state["repo"] = val
+                state["sel"] = 0
+                state["rows"] = visible_rows()
+            elif ch in (curses.KEY_ENTER, 10, 13):
+                if n:
+                    state["resume_id"] = rows[state["sel"]]["id"]
+                    return
+            elif ch == ord("x"):
+                if n and rows[state["sel"]]["state"] == "stale":
+                    sid = rows[state["sel"]]["id"]
+                    removed = delete_stale_locks(sid)
+                    state["msg"] = f"Removed {removed} stale lock(s) from {sid[:8]}."
+                    state["rows"] = visible_rows()
+                else:
+                    state["msg"] = "Select a 'stale' session to clear its lock (x)."
+            elif ch == ord("K"):
+                if n and rows[state["sel"]]["state"] == "open":
+                    r = rows[state["sel"]]
+                    stdscr.addstr(h - 1, 0,
+                                  f" Kill live session {r['id'][:8]} (PIDs {r['pids']})? y/N ".ljust(w - 1),
+                                  curses.A_REVERSE)
+                    if stdscr.getch() in (ord("y"), ord("Y")):
+                        killed = kill_session(r["pids"])
+                        state["msg"] = f"Sent SIGTERM to {killed} process(es)."
+                        state["rows"] = visible_rows()
+                    else:
+                        state["msg"] = "Kill cancelled."
+                else:
+                    state["msg"] = "Select an 'open' session to kill (K)."
+
+    curses.wrapper(loop)
+
+    if state["resume_id"]:
+        sid = state["resume_id"]
+        print(f"Resuming {sid} …")
+        try:
+            os.execvp("copilot", ["copilot", f"--resume={sid}"])
+        except OSError as e:
+            print(f"Failed to launch copilot: {e}", file=sys.stderr)
+            return 1
+    return 0
+
+
+def main():
+    p = argparse.ArgumentParser(add_help=False)
+    p.add_argument("-a", "--all", action="store_true")
+    p.add_argument("-n", "--limit", type=int, default=30)
+    p.add_argument("--open", dest="f_open", action="store_true")
+    p.add_argument("--idle", dest="f_idle", action="store_true")
+    p.add_argument("--stale", dest="f_stale", action="store_true")
+    p.add_argument("-r", "--repo", default=None)
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--no-color", action="store_true")
+    p.add_argument("-h", "--help", action="store_true")
+    p.add_argument("-t", "--tui", action="store_true")
+    args = p.parse_args()
+
+    if args.help:
+        print(__doc__)
+        return 0
+
+    if args.tui:
+        return run_tui(args)
+
+    rows = collect()
+
+    wanted = set()
+    if args.f_open:
+        wanted.add("open")
+    if args.f_idle:
+        wanted.add("idle")
+    if args.f_stale:
+        wanted.add("stale")
+    if wanted:
+        rows = [r for r in rows if r["state"] in wanted]
+    if args.repo:
+        rows = [r for r in rows if args.repo.lower() in r["repo"].lower()]
+
+    total = len(rows)
+    if not args.all and args.limit and args.limit > 0:
+        shown = rows[: args.limit]
+    else:
+        shown = rows
+
+    if args.json:
+        print(json.dumps(shown, indent=2))
+        return 0
+
+    use_color = sys.stdout.isatty() and not args.no_color
+
+    def col(text, code):
+        return f"{code}{text}{RESET}" if use_color else text
+
+    if not shown:
+        print("No matching Copilot sessions found.")
+        return 0
+
+    # header
+    hdr = f"{'STATE':7}  {'UPDATED':9}  {'REPO':22}  {'BRANCH':14}  {'ID':9}  TITLE"
+    print(col(hdr, BOLD) if use_color else hdr)
+    print(col("─" * len(hdr), DIM) if use_color else "─" * len(hdr))
+
+    for r in shown:
+        badge = BADGE[r["state"]]
+        badge = col(badge, COLORS[r["state"]]) if use_color else badge
+        repo = truncate(r["repo"] or (r["cwd"].split("/")[-1] if r["cwd"] else ""), 22)
+        branch = truncate(r["branch"], 14)
+        title = truncate(r["title"], 60)
+        line = (f"{badge}  {rel_time(r['updated']):9}  {repo:22}  "
+                f"{branch:14}  {r['id'][:8]}  {title}")
+        print(line)
+
+    # footer summary
+    from collections import Counter
+    counts = Counter(r["state"] for r in rows)
+    summary = "  ".join(
+        f"{BADGE[s].strip()}: {counts.get(s, 0)}" for s in ("open", "idle", "stale")
+    )
+    foot = f"\n{len(shown)} of {total} shown   |   {summary}"
+    if total > len(shown):
+        foot += "   (use -a/--all for the rest)"
+    foot += "\nResume:  copilot --resume=<id>"
+    print(col(foot, DIM) if use_color else foot)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except BrokenPipeError:
+        pass

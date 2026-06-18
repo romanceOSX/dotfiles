@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, lib, pkgs, isWSL ? false, ... }:
 {
   # The shell utilities from .local/bin, copied verbatim into ~/.local/bin with
   # the executable bit set. starship (rainbow-prompt) and tmux (tmux-rainbow,
@@ -59,6 +59,32 @@
     };
     ".local/bin/tmux-ssh-menu" = {
       source = ../.local/bin/tmux-ssh-menu;
+      executable = true;
+    };
+    ".local/bin/tmux-remote-shell" = {
+      source = ../.local/bin/tmux-remote-shell;
+      executable = true;
+    };
+    ".local/bin/copilot-sessions" = {
+      source = ../.local/bin/copilot-sessions;
+      executable = true;
+    };
+  }
+  # WSL-only helpers — keep these off macOS so they don't bloat that config.
+  // lib.optionalAttrs isWSL {
+    ".local/bin/wt-set-font" = {
+      source = ../.local/bin/wt-set-font;
+      executable = true;
+    };
+    ".local/bin/sfmono-nerd-install" = {
+      source = ../.local/bin/sfmono-nerd-install;
+      executable = true;
+    };
+  }
+  # Linux-only helpers — macOS has its own sshd (Remote Login), so skip it there.
+  // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+    ".local/bin/install-sshd-daemon" = {
+      source = ../.local/bin/install-sshd-daemon;
       executable = true;
     };
   };

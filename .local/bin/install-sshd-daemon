@@ -1,0 +1,128 @@
+#!/usr/bin/env sh
+
+# Installs a boot-time service that runs the Nix-provided sshd, so a WSL/Linux
+# box can be reached over ssh. This mirrors install-tailscaled-daemon: Home
+# Manager can't manage *system* services or write to /etc, and a real sshd needs
+# root + port 22 + host keys, so this imperative installer fills that gap and
+# makes the setup reproducible from the repo. Run it once per machine.
+#
+#   Linux  -> /etc/systemd/system/sshd.service   (systemd; needs wsl.conf systemd=true on WSL)
+#   macOS  -> no-op (use built-in Remote Login: System Settings > General > Sharing)
+#
+# The unit points at the *stable* home-manager profile symlink (not a raw
+# /nix/store path) so `home-manager switch` upgrades don't break the daemon.
+# sshd is pulled in by home.packages (pkgs.openssh_gssapi); see home/packages.nix.
+#
+# Auth is pubkey-only: the Nix sshd can't validate WSL's yescrypt shadow hashes
+# (unix_chkpwd isn't setgid-shadow under /nix/store), so password auth is off and
+# you must have ~/.ssh/authorized_keys populated. Requires sudo.
+
+set -e
+
+# Resolve the Nix sshd via the stable HM profile symlink, falling back to PATH.
+SSHD="$HOME/.local/state/nix/profiles/home-manager/home-path/bin/sshd"
+if [ ! -x "$SSHD" ]; then
+    SSHD="$(command -v sshd 2>/dev/null || true)"
+fi
+if [ -z "$SSHD" ] || [ ! -x "$SSHD" ]; then
+    echo "error: nix sshd not found (is pkgs.openssh_gssapi in home.packages?)." >&2
+    exit 1
+fi
+KEYGEN="$(dirname "$SSHD")/ssh-keygen"
+[ -x "$KEYGEN" ] || KEYGEN="$(command -v ssh-keygen 2>/dev/null || true)"
+
+install_macos() {
+    cat >&2 <<'EOF'
+macOS ships its own sshd. Don't install a Nix one here — enable the built-in
+service instead:
+    System Settings > General > Sharing > Remote Login   (toggle on)
+  or, from a terminal:
+    sudo systemsetup -setremotelogin on
+EOF
+    exit 0
+}
+
+install_systemd() {
+    if [ ! -d /run/systemd/system ]; then
+        echo "error: systemd is not running (PID 1 is not systemd)." >&2
+        echo "On WSL, add the following to /etc/wsl.conf:" >&2
+        echo "    [boot]" >&2
+        echo "    systemd=true" >&2
+        echo "then restart the distro ('wsl --shutdown') and re-run this script." >&2
+        exit 1
+    fi
+
+    # Host keys (idempotent: -A only creates the ones that are missing).
+    if [ -n "$KEYGEN" ]; then
+        sudo mkdir -p /etc/ssh
+        sudo "$KEYGEN" -A
+    fi
+
+    # Minimal, pubkey-only config — only written if there isn't one already, so
+    # re-running never clobbers a host's existing/customised sshd_config.
+    CONF=/etc/ssh/sshd_config
+    if [ ! -f "$CONF" ]; then
+        sudo tee "$CONF" >/dev/null <<EOF
+# Managed by install-sshd-daemon (dotfiles). Pubkey-only; see script header.
+Port 22
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKey /etc/ssh/ssh_host_rsa_key
+PermitRootLogin no
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+# The Nix sshd's PAM stack can't validate WSL yescrypt hashes — keep PAM off.
+UsePAM no
+AuthorizedKeysFile .ssh/authorized_keys
+# Forward client locale so remote TUIs render UTF-8 (Nerd Font) glyphs.
+AcceptEnv LANG LC_*
+X11Forwarding no
+PrintMotd no
+Subsystem sftp internal-sftp
+EOF
+    fi
+
+    UNIT=/etc/systemd/system/sshd.service
+
+    sudo tee "$UNIT" >/dev/null <<EOF
+[Unit]
+Description=OpenSSH server daemon (nix / home-manager)
+Documentation=man:sshd(8)
+After=network.target
+
+[Service]
+Type=simple
+ExecStartPre=$SSHD -t -f /etc/ssh/sshd_config
+ExecStart=$SSHD -D -f /etc/ssh/sshd_config
+ExecReload=/bin/kill -HUP \$MAINPID
+Restart=on-failure
+RestartSec=2
+RuntimeDirectory=sshd
+RuntimeDirectoryMode=0755
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable sshd
+    sudo systemctl restart sshd
+
+    if [ ! -s "$HOME/.ssh/authorized_keys" ]; then
+        echo "warning: $HOME/.ssh/authorized_keys is empty/missing." >&2
+        echo "         Password auth is disabled, so add a public key there or" >&2
+        echo "         you won't be able to log in." >&2
+    fi
+}
+
+case "$(uname)" in
+    Darwin) install_macos ;;
+    Linux)  install_systemd ;;
+    *)
+        echo "error: unsupported OS '$(uname)'." >&2
+        exit 1
+        ;;
+esac
+
+echo "sshd daemon installed and started (systemd unit: /etc/systemd/system/sshd.service)."
+echo "Check it with:  systemctl status sshd   and   ss -ltnp | grep ':22'"

@@ -1,0 +1,87 @@
+#!/usr/bin/env sh
+
+# tmux-remote-shell — open new windows / splits that stay on the remote host.
+#
+# tmux-sessionizer tags a remote session with the session option `@ssh_host`
+# and ssh's its panes into that host. A plain <prefix>c / split, though, runs
+# the window's default-command, which is a LOCAL shell — so "a new shell from a
+# remote shell" would silently drop you back onto the local box.
+#
+# These bindings route through this helper instead: it creates the window/pane
+# and, when the current session is a remote one (@ssh_host set), ssh's the new
+# pane straight back into the same host (reusing the ControlMaster socket, so
+# no re-auth). In a normal LOCAL session @ssh_host is empty and it behaves
+# exactly like the stock new-window / split-window it replaced.
+#
+# Usage: tmux-remote-shell window | vsplit | hsplit
+
+# Shared SSH multiplexing opts — must match tmux-sessionizer / tmux-ssh-menu so
+# this reuses the connection the session's existing panes already opened.
+# %C (hashed host/port/user) keeps the socket path under macOS's 104-char limit.
+SSH_SOCK_DIR="${XDG_RUNTIME_DIR:-$HOME/.ssh/sockets}"
+mkdir -p "$SSH_SOCK_DIR" 2>/dev/null
+SSH_OPTS="-o ControlMaster=auto -o ControlPath=$SSH_SOCK_DIR/%C -o ControlPersist=10m"
+
+action="$1"
+[ -z "$action" ] && exit 1
+
+# A short random token used to tag a remote shell's environment so a later
+# split can find that shell's process (and thus its cwd) on the remote host.
+gen_tag() {
+    t=$(LC_ALL=C tr -dc 'a-f0-9' < /dev/urandom 2>/dev/null | head -c 16)
+    [ -n "$t" ] || t="$$-$(date +%s)"
+    printf 'rcwd-%s' "$t"
+}
+
+# Read these from the CURRENT pane/session, before the new one is created.
+host=$(tmux show-options -qv @ssh_host)
+path=$(tmux display-message -p '#{pane_current_path}')
+
+# Local session: stock new-window / split-window with a local shell. The start
+# dir mirrors the stock bindings.
+if [ -z "$host" ]; then
+    case "$action" in
+        window) tmux new-window   -c "$path" ;;
+        vsplit) tmux split-window -v -c "$path" ;;
+        hsplit) tmux split-window -h -c "$path" ;;
+        *) exit 1 ;;
+    esac
+    exit 0
+fi
+
+# Remote session: run ssh AS the new pane's command (not send-keys into a local
+# shell). -t forces a pty; a remote LOGIN shell (-li) sets up the remote PATH.
+# Because ssh is the pane's foreground process, exiting the remote shell ends
+# ssh and tmux closes the pane — you never drop back to a local shell inside a
+# remote session, so remote and local shells are never mixed. \$SHELL is escaped
+# to expand on the remote, not locally.
+#
+# Open the new pane in the SAME remote directory as the current pane. tmux's
+# #{pane_current_path} only tracks the LOCAL ssh-client cwd, not the remote
+# shell's, so we can't read the remote cwd from tmux. Instead every remote shell
+# is tagged with a unique TMUX_RCWD_TAG in its environment (stored alongside it
+# as the pane option @rcwd_tag). Here we ssh back in (reusing the ControlMaster
+# socket, no re-auth), find the process whose environment carries the current
+# pane's tag and read its /proc/<pid>/cwd. The new shell cd's there and is
+# tagged afresh so splits FROM it work too. If the lookup fails (e.g. a non-Linux
+# remote without /proc, or an untagged pane) we fall back to a plain login shell.
+new_tag=$(gen_tag)
+cur_tag=$(tmux show-options -qv -p @rcwd_tag)
+remote_dir=""
+if [ -n "$cur_tag" ]; then
+    remote_dir=$(ssh $SSH_OPTS "$host" "for d in /proc/[0-9]*; do tr '\\0' '\\n' < \"\$d/environ\" 2>/dev/null | grep -qx \"TMUX_RCWD_TAG=$cur_tag\" && { readlink \"\$d/cwd\"; break; }; done 2>/dev/null")
+fi
+
+if [ -n "$remote_dir" ]; then
+    shell_cmd="ssh $SSH_OPTS -t \"$host\" \"cd '$remote_dir' && exec env TMUX_RCWD_TAG='$new_tag' \\\$SHELL -li\""
+else
+    shell_cmd="ssh $SSH_OPTS -t \"$host\" \"exec env TMUX_RCWD_TAG='$new_tag' \\\$SHELL -li\""
+fi
+
+case "$action" in
+    window) new_pane=$(tmux new-window   -P -F '#{pane_id}' "$shell_cmd") ;;
+    vsplit) new_pane=$(tmux split-window -v -P -F '#{pane_id}' "$shell_cmd") ;;
+    hsplit) new_pane=$(tmux split-window -h -P -F '#{pane_id}' "$shell_cmd") ;;
+    *) exit 1 ;;
+esac
+tmux set-option -p -t "$new_pane" @rcwd_tag "$new_tag"
