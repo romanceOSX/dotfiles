@@ -86,8 +86,8 @@ in
       # untagged / projectless task (i.e. most of the list) and, ranking above
       # due/overdue in rule.precedence, would wash the whole table out to a dim
       # near-transparent gray. Leave such rows at the terminal's default fg.
-      "color.completed" = "color240"; # faint
-      "color.deleted" = "color240";
+      "color.completed" = "color245"; # dim gray, but readable in `task all`
+      "color.deleted" = "color245";
       "color.alternate" = "on color235"; # subtle alt-row background
       "color.uda.priority.H" = "color175"; # rose
       "color.uda.priority.M" = "color180"; # peach
