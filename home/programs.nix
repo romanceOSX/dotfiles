@@ -42,6 +42,7 @@
     enableZshIntegration = false; # we define our own `y` wrapper in shell.nix
     theme = builtins.fromTOML (builtins.readFile ./yazi/theme.toml);
     initLua = ./yazi/init.lua;
+    settings.mgr.show_hidden = true; # show dotfiles by default (toggle with `.`)
   };
 
   # ---------------------------------------------------------------------------
