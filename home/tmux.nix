@@ -128,19 +128,9 @@ in
       bind X kill-session
       set-hook -g after-new-session 'resize-pane -D 1'
 
-      # NOTE: do NOT add hooks that force window-size on aoe (agent-of-empires)
-      # sessions. aoe deliberately resizes each agent window to its dashboard
-      # *preview* viewport and re-asserts that size every render frame; it owns
-      # sizing itself and restores `window-size latest` on a full attach (Tab,
-      # when default_attach_mode = live_send) / exit-live-send / session create.
-      # Earlier we added client-attached/-resized/-session-changed/
-      # session-window-changed hooks doing `set -w window-size largest ;
-      # resize-window -A` to "fix" the whitespace — they just raced aoe's
-      # per-frame resize and caused a fill-then-shrink flicker (aoe even sets
-      # `window-size latest` specifically to defend against user tmux.conf
-      # interference). The whitespace is the preview size; use aoe's full attach
-      # (Tab) to get the agent at full terminal size. See git history for the
-      # investigation.
+      # NOTE: don't add window-size hooks for aoe (agent-of-empires) sessions —
+      # aoe owns its own sizing and such hooks just race its per-frame resize
+      # (caused a fill-then-shrink flicker). See git history (~mid-2026).
 
       # --- Status bar ---
       set -g status on
