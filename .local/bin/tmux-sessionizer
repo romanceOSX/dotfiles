@@ -11,6 +11,61 @@ SSH_SOCK_DIR="${XDG_RUNTIME_DIR:-$HOME/.ssh/sockets}"
 mkdir -p "$SSH_SOCK_DIR" 2>/dev/null
 SSH_OPTS="-o ControlMaster=auto -o ControlPath=$SSH_SOCK_DIR/%C -o ControlPersist=10m"
 
+# A short random token used to tag a remote shell's environment so a later
+# <prefix>c / split (tmux-remote-shell) can find that shell's process — and thus
+# its cwd — on the remote host. See tmux-remote-shell for the lookup side.
+gen_tag() {
+    t=$(LC_ALL=C tr -dc 'a-f0-9' < /dev/urandom 2>/dev/null | head -c 16)
+    [ -n "$t" ] || t="$$-$(date +%s)"
+    printf 'rcwd-%s' "$t"
+}
+
+# Machine-local cache of hosts we've actually connected to from THIS box. It's
+# kept out of the dotfiles repo (under XDG_STATE_HOME) on purpose: the TOML
+# [[ssh]] list is shared via git and may advertise hosts another machine can
+# reach but this one can't, whereas this cache only ever grows from real
+# connections here. tmux-ssh-menu unions it into the connections list so a host
+# you've reached once shows up again even if it was never pre-declared.
+SSH_HOST_CACHE="${XDG_STATE_HOME:-$HOME/.local/state}/tmux/ssh-hosts"
+
+# Record a host as most-recently-used: prepend it, drop any earlier duplicate,
+# cap the file at 100 entries. Written atomically via a temp file + mv.
+cache_host() {
+    _h="$1"
+    [ -n "$_h" ] || return 0
+    mkdir -p "$(dirname "$SSH_HOST_CACHE")" 2>/dev/null || return 0
+    _tmp="$SSH_HOST_CACHE.$$"
+    {
+        printf '%s\n' "$_h"
+        [ -f "$SSH_HOST_CACHE" ] && grep -vxF "$_h" "$SSH_HOST_CACHE"
+    } 2>/dev/null | awk 'NF && !seen[$0]++' | head -n 100 > "$_tmp" 2>/dev/null \
+        && mv "$_tmp" "$SSH_HOST_CACHE" 2>/dev/null
+    rm -f "$_tmp" 2>/dev/null
+}
+
+# Probe that the host's ssh service actually answers before we try to browse it,
+# so an unreachable host or a dead sshd gives a clear message instead of a
+# silent, empty fzf picker. This is an APP-LAYER probe (a trivial `ssh … true`),
+# not a TCP port check: on zero-trust / CGNAT networks port scans are unreliable,
+# and we also want to confirm ssh itself responds and we can authenticate. ssh's
+# own stderr ("Connection refused" vs "timed out") is left visible so the real
+# reason shows through. A success also warms the ControlMaster, so the browse
+# that follows reuses the same connection without re-authenticating.
+# Returns 0 if reachable, non-zero otherwise.
+probe_remote() {
+    ssh $SSH_OPTS -o ConnectTimeout=10 "$1" true
+}
+
+# Report an unreachable host across both contexts: a status-line message (which
+# survives the popup closing) plus a line held briefly on screen when we're in an
+# interactive popup/terminal, so the user actually sees why nothing opened.
+remote_unreachable() {
+    _msg="ssh: cannot reach '$1' — host down or ssh service unavailable"
+    tmux display-message "$_msg" 2>/dev/null
+    printf '%s\n' "$_msg" >&2
+    [ -t 1 ] && sleep 2
+}
+
 # -r <host> [dir ...]: REMOTE mode. fzf-browse the immediate subdirs of the
 #   given remote dirs (over ssh), then open a LOCAL session whose editor/shell
 #   panes ssh into <host> at the chosen dir. The session is tinted amber and
@@ -24,6 +79,12 @@ if [ "$1" = "-r" ]; then
     REMOTE_HOST="$1"
     shift
     [ -z "$REMOTE_HOST" ] && exit 1
+    # Bail early with a clear message if the host's ssh service isn't reachable,
+    # so we never drop the user into an empty picker for a dead/unreachable host.
+    if ! probe_remote "$REMOTE_HOST"; then
+        remote_unreachable "$REMOTE_HOST"
+        exit 1
+    fi
     # Default remote roots if none were passed.
     [ "$#" -eq 0 ] && set -- '~' '~/git'
     # List each remote root itself, then its immediate children, over one ssh.
@@ -62,18 +123,37 @@ if [ -n "$REMOTE_HOST" ]; then
     base=$(basename "$selected" | tr ' .:' '___')
     selected_name="${REMOTE_HOST}·${base}"
 
-    # ssh commands the panes run. -t forces a pty; cd to the (already-expanded,
-    # absolute) remote dir, then launch via a LOGIN shell so the remote PATH is
-    # set up (nvim resolves even from a nix/profile install). The editor window
-    # drops back to an interactive login shell when you quit nvim, so the window
-    # survives. \$SHELL is escaped to expand on the remote, not locally.
-    edit_cmd="ssh $SSH_OPTS -t \"$REMOTE_HOST\" \"cd '$selected' && exec \\\$SHELL -lc 'nvim; exec \\\$SHELL -li'\""
-    shell_cmd="ssh $SSH_OPTS -t \"$REMOTE_HOST\" \"cd '$selected' && exec \\\$SHELL -li\""
+    # We got here only after a successful remote browse, so this host is reachable
+    # from this machine — remember it for the connections menu (see tmux-ssh-menu).
+    cache_host "$REMOTE_HOST"
+
+    # ssh commands the panes RUN AS their foreground process (passed straight to
+    # new-session / new-window, not send-keys into a local shell). -t forces a
+    # pty; cd to the (already-expanded, absolute) remote dir, then launch via a
+    # LOGIN shell so the remote PATH is set up (nvim resolves even from a
+    # nix/profile install). The editor window drops back to a remote login shell
+    # when you quit nvim, so it survives; exiting that shell ends ssh and closes
+    # the window. Because ssh is the pane's process, you never fall back to a
+    # local shell inside a remote session — remote and local shells stay
+    # separate. \$SHELL is escaped to expand on the remote, not locally.
+    # The editor and shell panes each get a unique TMUX_RCWD_TAG so a later
+    # split (tmux-remote-shell) can locate that pane's shell on the remote and
+    # reuse its cwd. The tag is also stored as the pane option @rcwd_tag after
+    # creation. It survives the editor pane's `exec $SHELL` chain (env is
+    # inherited), so quitting nvim and splitting still resolves the right dir.
+    edit_tag=$(gen_tag)
+    shell_tag=$(gen_tag)
+    edit_cmd="ssh $SSH_OPTS -t \"$REMOTE_HOST\" \"cd '$selected' && exec env TMUX_RCWD_TAG='$edit_tag' \\\$SHELL -lc 'nvim; exec \\\$SHELL -li'\""
+    shell_cmd="ssh $SSH_OPTS -t \"$REMOTE_HOST\" \"cd '$selected' && exec env TMUX_RCWD_TAG='$shell_tag' \\\$SHELL -li\""
 
     apply_remote_style() {
         # Per-session overrides win over nova's global -g status/pane styles, so
         # the bar turns muted amber for this session only (host shown in name).
         tmux set-option -t "$selected_name" @ssh_host "$REMOTE_HOST"
+        # Pane-level tags matching each remote shell's TMUX_RCWD_TAG, so splits
+        # from these panes can resolve their remote cwd (see tmux-remote-shell).
+        tmux set-option -p -t "$selected_name:editor" @rcwd_tag "$edit_tag"
+        tmux set-option -p -t "$selected_name:shell" @rcwd_tag "$shell_tag"
         tmux set-option -t "$selected_name" status-style "bg=#4A3F2A,fg=#F6CF94"
         tmux set-option -t "$selected_name" pane-active-border-style "fg=#F6CF94"
         tmux set-option -t "$selected_name" pane-border-style "fg=#3A3326"
@@ -81,10 +161,8 @@ if [ -n "$REMOTE_HOST" ]; then
 
     tmux_running=$(pgrep tmux)
     if [ -z "$TMUX" ] && [ -z "$tmux_running" ]; then
-        tmux new-session -ds "$selected_name" -n "editor"
-        tmux send-keys -t "$selected_name:editor" "$edit_cmd" Enter
-        tmux new-window -t "$selected_name" -n "shell"
-        tmux send-keys -t "$selected_name:shell" "$shell_cmd" Enter
+        tmux new-session -ds "$selected_name" -n "editor" "$edit_cmd"
+        tmux new-window -t "$selected_name" -n "shell" "$shell_cmd"
         tmux select-window -t "$selected_name:editor"
         apply_remote_style
         tmux attach-session -t "$selected_name"
@@ -92,10 +170,8 @@ if [ -n "$REMOTE_HOST" ]; then
     fi
 
     if ! tmux has-session -t="$selected_name" 2>/dev/null; then
-        tmux new-session -ds "$selected_name" -n "editor"
-        tmux send-keys -t "$selected_name:editor" "$edit_cmd" Enter
-        tmux new-window -t "$selected_name" -n "shell"
-        tmux send-keys -t "$selected_name:shell" "$shell_cmd" Enter
+        tmux new-session -ds "$selected_name" -n "editor" "$edit_cmd"
+        tmux new-window -t "$selected_name" -n "shell" "$shell_cmd"
         tmux select-window -t "$selected_name:editor"
         apply_remote_style
     fi

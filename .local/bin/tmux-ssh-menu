@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # tmux-ssh-menu — K8s-style SSH connection manager
 #
-# Lists configured + running SSH connections (status, session count), lets you
-# open a new one by name/address, and on select re-enters the sessionizer dir
-# picker over the REMOTE filesystem (see tmux-sessionizer -r).
+# Lists configured + cached + running SSH connections (status, session count),
+# lets you open a new one by name/address, and on select re-enters the
+# sessionizer dir picker over the REMOTE filesystem (see tmux-sessionizer -r).
+#
+# Hosts come from three sources, unioned: the TOML [[ssh]] blocks ("configured",
+# shared via git), a machine-local cache of hosts actually connected to from this
+# box ("cached", written by tmux-sessionizer), and any currently-running remote
+# sessions ("live"). Each row is tagged [cfg]/[seen] so a node pre-declared on
+# another machine is distinguishable from one this machine has really reached.
 #
 # Reusable / standalone: run directly, or via tmux display-popup -E.
 # Bound to <prefix>f s through the sessionizer TOML (cmd = "tmux-ssh-menu").
@@ -27,6 +33,12 @@ XDG="${XDG_CONFIG_HOME:-$HOME/.config}"
 CONF="$XDG/tmux/sessionizer.toml"
 [[ -f "$CONF" ]] || CONF="$XDG/tmux/sessionizer.toml.example"
 
+# Machine-local cache of hosts actually connected to from this box (written by
+# tmux-sessionizer on a successful remote connect). Kept under XDG_STATE_HOME,
+# OUTSIDE the dotfiles repo, so it reflects THIS machine's reality rather than
+# hosts that were pre-declared on some other machine and shared via the git TOML.
+CACHE="${XDG_STATE_HOME:-$HOME/.local/state}/tmux/ssh-hosts"
+
 # Parse the TOML once to JSON (same pipeline as tmux-sessionizer-menu).
 if [[ -f "$CONF" ]]; then
     JSON=$(python3 -c "
@@ -41,6 +53,20 @@ fi
 host_label() { jq -r --arg h "$1" '(.ssh // [])[] | select(.host==$h) | .label // empty' <<<"$JSON" | head -1; }
 host_dirs()  { jq -r --arg h "$1" '(.ssh // [])[] | select(.host==$h) | (.dirs // [])[]' <<<"$JSON" | tr '\n' ' '; }
 
+# Where a host is known from: pre-declared in the TOML ("configured") and/or
+# connected-to before from this machine ("cached"). A host can be both.
+is_configured() { jq -e --arg h "$1" 'any((.ssh // [])[]; .host==$h)' <<<"$JSON" >/dev/null 2>&1; }
+is_cached()     { [[ -f "$CACHE" ]] && grep -qxF "$1" "$CACHE"; }
+# Compact, dim provenance tag shown at the end of each row, e.g. [cfg·seen].
+# A bare [cfg] host was declared (maybe on another machine) but never reached
+# here; [seen] means this box has actually connected to it.
+src_tag() {
+    local t=""
+    is_configured "$1" && t="cfg"
+    is_cached "$1"     && t="${t:+$t·}seen"
+    [[ -n "$t" ]] && printf '%s[%s]%s' "$DIM" "$t" "$RESET"
+}
+
 is_connected() { ssh $SSH_OPTS -O check "$1" >/dev/null 2>&1; }
 session_count() {
     tmux list-sessions -F '#{@ssh_host}' 2>/dev/null | awk -v h="$1" 'NF && $0==h' | wc -l | tr -d ' '
@@ -54,6 +80,13 @@ if [[ "$1" == "--preview" ]]; then
     esac
     printf '%sHOST%s   %s\n' "$BOLD" "$RESET" "$host"
     lbl=$(host_label "$host"); [[ -n "$lbl" ]] && printf '%slabel%s  %s\n' "$DIM" "$RESET" "$lbl"
+    # Provenance: configured (declared in the TOML, possibly on another machine)
+    # and/or cached (this machine has connected to it before).
+    srcs=()
+    is_configured "$host" && srcs+=("configured")
+    is_cached "$host"     && srcs+=("cached")
+    [[ ${#srcs[@]} -eq 0 ]] && srcs+=("ad-hoc")
+    printf '%ssource%s %s\n' "$DIM" "$RESET" "$(IFS=', '; echo "${srcs[*]}")"
     if is_connected "$host"; then
         printf '%sstate%s  %sConnected%s (control master live)\n' "$DIM" "$RESET" "$GREEN" "$RESET"
     else
@@ -68,10 +101,11 @@ if [[ "$1" == "--preview" ]]; then
     exit 0
 fi
 
-# ── Gather hosts: configured (TOML) ∪ tagged (running sessions) ────────────
+# ── Gather hosts: configured (TOML) ∪ cached (connected before) ∪ live ─────
 all_hosts=$(
     {
         jq -r '(.ssh // [])[].host' <<<"$JSON" 2>/dev/null
+        [[ -f "$CACHE" ]] && grep -v '^[[:space:]]*$' "$CACHE"
         tmux list-sessions -F '#{@ssh_host}' 2>/dev/null | awk 'NF'
     } | awk 'NF && !seen[$0]++'
 )
@@ -82,13 +116,14 @@ while IFS= read -r host; do
     [[ -z "$host" ]] && continue
     lbl=$(host_label "$host"); [[ -z "$lbl" ]] && lbl="$host"
     n=$(session_count "$host")
+    tag=$(src_tag "$host")
     if is_connected "$host"; then
-        visible=$(printf ' %s●%s  %sConnected%s  %ssessions:%-3s%s  %s%-18s%s  %s' \
-            "$GREEN" "$RESET" "$GREEN" "$RESET" "$DIM" "$n" "$RESET" "$PINK" "$lbl" "$RESET" "$host")
+        visible=$(printf ' %s●%s  %sConnected%s  %ssessions:%-3s%s  %s%-18s%s  %s  %s' \
+            "$GREEN" "$RESET" "$GREEN" "$RESET" "$DIM" "$n" "$RESET" "$PINK" "$lbl" "$RESET" "$host" "$tag")
         entries_up+=( "${host}"$'\t'"${visible}" )
     else
-        visible=$(printf ' %s○  Idle       sessions:%-3s  %-18s  %s%s' \
-            "$DIM" "$n" "$lbl" "$host" "$RESET")
+        visible=$(printf ' %s○  Idle       sessions:%-3s  %-18s  %s%s  %s' \
+            "$DIM" "$n" "$lbl" "$host" "$RESET" "$tag")
         entries_idle+=( "${host}"$'\t'"${visible}" )
     fi
 done < <(printf '%s\n' "$all_hosts")
@@ -122,6 +157,8 @@ if [[ "$host" == "__new__" ]]; then
     candidates=$(
         {
             jq -r '(.ssh // [])[].host' <<<"$JSON" 2>/dev/null
+            # Hosts we've connected to before from this machine.
+            [[ -f "$CACHE" ]] && grep -v '^[[:space:]]*$' "$CACHE"
             # ~/.ssh/config Host aliases (skip wildcards)
             [[ -f "$HOME/.ssh/config" ]] && awk 'tolower($1)=="host"{for(i=2;i<=NF;i++) print $i}' \
                 "$HOME/.ssh/config" | grep -v '[*?]'

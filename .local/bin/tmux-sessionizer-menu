@@ -64,10 +64,19 @@ while IFS= read -r entry; do
     dir_str="${dirs[0]}"
     for d in "${dirs[@]:1}"; do dir_str+=", $d"; done
 
+    # Build the -p args. Expand a leading ~ here (bash) because we single-quote
+    # each dir below, which stops the sh that `display-popup -E` runs from doing
+    # tilde expansion. Single-quoting lets paths with spaces or shell
+    # metacharacters (e.g. the & in a OneDrive path) survive that sh intact.
     p_args="-p"
-    for d in "${dirs[@]}"; do p_args+=" $d"; done
+    for d in "${dirs[@]}"; do
+        d="${d/#\~/$HOME}"
+        p_args+=" '${d//\'/\'\\\'\'}'"
+    done
 
-    menu_args+=("${label}  (${dir_str})" "$key" "display-popup -E 'tmux-sessionizer ${p_args}'")
+    # Wrap the command in tmux DOUBLE quotes so the inner sh single quotes are
+    # preserved when tmux re-parses this menu command on selection.
+    menu_args+=("${label}  (${dir_str})" "$key" "display-popup -E \"tmux-sessionizer ${p_args}\"")
 done < <(jq -c '.entries[]' <<< "$json")
 
 exec tmux display-menu \
