@@ -248,6 +248,18 @@
           command rm -f -- "$tmp"
       }
 
+      # --- aoe (agent-of-empires): run with $TMUX unset ---
+      # aoe attaches agent sessions with `switch-client` when it detects it's
+      # inside tmux ($TMUX set) and `attach-session` otherwise. switch-client is
+      # non-blocking, so aoe's TUI keeps running and its per-frame preview loop
+      # re-pins each agent window to the small preview viewport -> whitespace on
+      # the right/bottom. Unsetting $TMUX makes aoe take the blocking
+      # attach-session path, which takes over the terminal (pausing the preview
+      # loop) and fills it. Side effect: a true tmux-in-tmux, so use a double
+      # prefix (C-a C-a = send-prefix) to reach the inner layer. No-op when
+      # already outside tmux.
+      function aoe() { env -u TMUX command aoe "$@"; }
+
       # --- daemons / ports: list running services (from .commonrc) ---
       function daemons() {
           if [ "$(uname)" = "Darwin" ]; then
