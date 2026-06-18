@@ -26,11 +26,16 @@
     { nixpkgs, nixpkgs-neovim, home-manager, agent-of-empires, ... }:
     let
       # Machine-local identity — each host defines local.nix once (gitignored).
-      # Falls back to sensible defaults if missing.
+      # Sensible personal defaults are merged with (and overridden by) local.nix,
+      # so a host that omits a field still gets the default. Git identity is NOT
+      # set here — it lives in ~/.config/git/config.local (see home/programs.nix).
+      localDefaults = {
+        username = "romance";
+        homeDirectory = "/home/romance";
+      };
       local =
-        if builtins.pathExists ./local.nix
-        then import ./local.nix
-        else { username = "romance"; homeDirectory = "/home/romance"; };
+        localDefaults
+        // (if builtins.pathExists ./local.nix then import ./local.nix else { });
 
       # Build a Home Manager configuration for one host.
       #   system        — nix system double (e.g. "x86_64-linux", "aarch64-darwin")

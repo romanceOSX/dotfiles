@@ -4,3 +4,11 @@
 result
 result-*
 .direnv/
+
+# NOTE: local.nix is deliberately NOT ignored. The flake reads ./local.nix from
+# its git source (`.#` is a git+file ref, which excludes git-ignored files), so
+# ignoring it would silently fall back to the romance/ defaults. Keep it staged
+# (`git add local.nix`) but uncommitted so each host keeps its own identity.
+
+# machine-local sessionizer copy — not read by the flake, safe to ignore
+home/tmux-sessionizer.toml
