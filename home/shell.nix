@@ -115,6 +115,8 @@
       # NOTE: find/grep/man are intentionally NOT aliased to fd/rg/tldr — their
       # CLIs differ enough that aliasing breaks flags and pipelines. Use the new
       # tools by name (`fd`, `rg`, `tldr`); `cd` is replaced by zoxide below.
+      tldrf = "tldr --list | tr ', ' '\\n' | fzf --preview 'tldr {} --color=always'";
+      how = "tldr --list | tr ', ' '\\n' | fzf --preview 'tldr {} --color=always'";
 
       toks = "tokscale";
       lg = "lazygit";
