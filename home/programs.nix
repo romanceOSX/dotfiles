@@ -172,4 +172,24 @@
       hunk-header-line-number-style = "#9EC4FE"; # blue
     };
   };
+
+  # ---------------------------------------------------------------------------
+  # gh — GitHub CLI + TUI extensions
+  # ---------------------------------------------------------------------------
+  # `programs.gh.enable` installs the `gh` package (so it's dropped from
+  # packages.nix) and lets us declare extensions reproducibly instead of
+  # `gh extension install`-ing them imperatively into ~/.local/share/gh.
+  programs.gh = {
+    enable = true;
+    settings = {
+      git_protocol = "https";
+      aliases = {
+        co = "pr checkout";
+      };
+    };
+    extensions = with pkgs; [
+      gh-dash # dashboard TUI for PRs/issues across repos (`gh dash`)
+      gh-notify # fzf TUI for GitHub notifications (`gh notify`)
+    ];
+  };
 }

@@ -39,7 +39,7 @@ dirs  = ["~/git", "/mnt/c/git"]
 [[entries]]
 key   = "n"
 label = "notes"
-dirs  = ["~/notes"]
+dirs  = ["/mnt/c/Users/b5s5k7t/OneDrive-Deere&Co/OneDrive - Deere & Co/Documents/notes/"]
 
 [[entries]]
 key   = "h"

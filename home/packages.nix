@@ -53,6 +53,8 @@
             gawk # rainbow-prompt / tmux-rainbow sine-wave gradients
             gnused
             stow # keep the non-nix stow install path working too
+            # gh (GitHub CLI) is wired via programs.gh in programs.nix
+            # (declares gh-dash + gh-notify TUI extensions there too).
             fastfetch
             hyfetch
             colima

@@ -13,6 +13,11 @@
 # no re-auth). In a normal LOCAL session @ssh_host is empty and it behaves
 # exactly like the stock new-window / split-window it replaced.
 #
+# Even without @ssh_host, the current pane may be inside an *ad-hoc* ssh you
+# typed by hand (`ssh somehost`). In that case there's no session tag, so we
+# inspect the pane's process tree, find the running ssh client, and clone its
+# exact invocation into the new pane — keeping you on the remote host there too.
+#
 # Usage: tmux-remote-shell window | vsplit | hsplit
 
 # Shared SSH multiplexing opts — must match tmux-sessionizer / tmux-ssh-menu so
@@ -33,13 +38,76 @@ gen_tag() {
     printf 'rcwd-%s' "$t"
 }
 
+# Walk the process subtree rooted at $1 (a pane's shell pid) breadth-first and
+# echo the pid of the shallowest interactive `ssh` client found — i.e. the ssh
+# the user launched from the pane shell, not some nested grandchild. Empty
+# output + non-zero exit when the pane isn't running ssh.
+find_ssh_pid() {
+    _procs=$(ps -Ao pid=,ppid=,comm= 2>/dev/null) || return 1
+    _queue="$1"
+    while [ -n "$_queue" ]; do
+        _next=""
+        for _p in $_queue; do
+            _kids=$(printf '%s\n' "$_procs" | awk -v pp="$_p" '$2==pp {print $1}')
+            for _k in $_kids; do
+                _comm=$(printf '%s\n' "$_procs" | awk -v kp="$_k" '$1==kp {print $3}')
+                [ "$_comm" = "ssh" ] && { printf '%s' "$_k"; return 0; }
+                _next="$_next $_k"
+            done
+        done
+        _queue="$_next"
+    done
+    return 1
+}
+
+# Echo the argv of process $1 as a single POSIX-sh-quoted command string that
+# can be handed to `tmux new-window` / `split-window` (which run it via sh -c).
+# Reads /proc/<pid>/cmdline (exact, NUL-separated) on Linux; falls back to
+# `ps -o args=` elsewhere (e.g. macOS, which has no /proc). ssh argv never
+# contains newlines, so the NUL->newline split is safe.
+ssh_cmdline() {
+    if [ -r "/proc/$1/cmdline" ]; then
+        _out=""
+        _oldifs=$IFS
+        IFS='
+'
+        for _arg in $(tr '\0' '\n' < "/proc/$1/cmdline"); do
+            _esc=$(printf '%s' "$_arg" | sed "s/'/'\\\\''/g")
+            _out="$_out '$_esc'"
+        done
+        IFS=$_oldifs
+        printf '%s' "$_out"
+    else
+        ps -o args= -p "$1" 2>/dev/null
+    fi
+}
+
 # Read these from the CURRENT pane/session, before the new one is created.
 host=$(tmux show-options -qv @ssh_host)
 path=$(tmux display-message -p '#{pane_current_path}')
 
-# Local session: stock new-window / split-window with a local shell. The start
-# dir mirrors the stock bindings.
+# No @ssh_host: not a sessionizer remote session. The pane may still be inside
+# an ad-hoc `ssh host` typed by hand — detect that and clone the ssh invocation
+# into the new pane so it stays remote. Otherwise fall back to a local shell,
+# exactly like the stock new-window / split-window (same start dir).
 if [ -z "$host" ]; then
+    ssh_argv=""
+    pane_pid=$(tmux display-message -p '#{pane_pid}')
+    ssh_pid=$(find_ssh_pid "$pane_pid")
+    [ -n "$ssh_pid" ] && ssh_argv=$(ssh_cmdline "$ssh_pid")
+
+    if [ -n "$ssh_argv" ]; then
+        # Ad-hoc remote pane: re-run the same ssh argv as the new pane's command.
+        case "$action" in
+            window) tmux new-window   -c "$path" "$ssh_argv" ;;
+            vsplit) tmux split-window -v -c "$path" "$ssh_argv" ;;
+            hsplit) tmux split-window -h -c "$path" "$ssh_argv" ;;
+            *) exit 1 ;;
+        esac
+        exit 0
+    fi
+
+    # Plain local shell.
     case "$action" in
         window) tmux new-window   -c "$path" ;;
         vsplit) tmux split-window -v -c "$path" ;;
