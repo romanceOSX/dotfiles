@@ -161,3 +161,135 @@ git config -f ~/.config/git/config.local user.email "you@example.com"
 ```
 
 Verify where it resolves from with `git config --show-origin --get user.email`.
+
+---
+
+## What's installed
+
+A quick reference for everything declared across the `home/*.nix` modules, grouped by purpose.
+
+### AI & agents
+
+| Tool | Alias | What it does |
+|---|---|---|
+| **aoe** (agent-of-empires) | `aoe` | TUI for running multiple AI coding agents in parallel across git branches. Custom pastel-rainbow theme shipped in this repo. |
+| **tokscale** | `toks` | Tracks token usage across agentic coding tools (Claude Code, OpenCode, etc.). Supports monthly/hourly reports, a TUI, and a social submission mode. |
+| **openai-whisper** | `whisper` | Local speech-to-text transcription. |
+| **copilot-sessions** | `.local/bin` | Shell helper for managing GitHub Copilot CLI sessions. |
+
+### Editor
+
+**Neovim** (pinned to 0.12.0 via a separate nixpkgs input — see `flake.nix`). The binary comes from Nix; the config does **not** — `~/.config/nvim` is a live symlink to `~/git/init.lua`, so edits there take effect immediately with no rebuild. Aliases: `vim`, `vi`.
+
+LSP servers installed alongside it:
+
+| Server | Language |
+|---|---|
+| `lua-language-server` | Lua |
+| `pyright` | Python |
+| `bash-language-server` | Bash / Zsh |
+| `marksman` | Markdown |
+| `clangd` (via `clang-tools`) | C / C++ (forced to C++23 via `~/.config/clangd/config.yaml`) |
+| `rust-analyzer` | Rust |
+
+Formatters: `stylua`, `black`, `isort`, `prettier`, `mdformat`.
+
+### Shell & prompt
+
+| Tool | Notes |
+|---|---|
+| **zsh** | vi-mode, fzf-tab completion, 100k history, emacs-in-insert keybindings (`^A/^E/^R`…) |
+| **starship** | Prompt — config at `home/starship.toml` |
+| **fzf** | Fuzzy finder — `^R` history, `^T` file, `ALT-C` dir; unified nav keys across all pickers |
+| **fzf-tab** | Replaces zsh's Tab completion menu with fzf |
+| **zoxide** | Smart `cd` that learns jump targets; `--cmd cd` shadows the builtin; `cdi` for interactive picker |
+
+### Git
+
+| Tool | Alias | Notes |
+|---|---|---|
+| **lazygit** | `lg` | TUI for git — pastel-rainbow theme |
+| **delta** | `diff` | Syntax-highlighted diffs and git pager; Coldark-Dark syntax theme |
+| **gh** (GitHub CLI) | `gh` | Auth + API; `gh co` = `gh pr checkout` |
+| **gh-dash** | `gh dash` | TUI dashboard for PRs and issues across repos |
+| **gh-notify** | `gh notify` | fzf TUI for GitHub notifications |
+
+### File manager
+
+**yazi** — terminal file manager with previews. Launched via the `y` wrapper (returns to the last directory on exit). Preview dependencies installed alongside it: `ffmpeg`, `jq`, `poppler-utils`, `_7zz`, `resvg`, `imagemagick`, `chafa`.
+
+### Modern CLI replacements
+
+| Alias | Tool | Replaces |
+|---|---|---|
+| `ls`, `l`, `ll`, `la`, `tree` | **eza** | `ls` — icons, git status, pastel-rainbow theme |
+| `cat` | **bat** | `cat` — syntax highlighting, Coldark-Dark theme |
+| `du` | **dust** | `du` — disk-usage tree |
+| (interactive) | **dua** | `du` — interactive disk-usage analyzer |
+| `df` | **duf** | `df` — filesystem usage |
+| `ps` | **procs** | `ps` — process listing |
+| `watch` | **viddy** | `watch` — live command output |
+| `diff` | **delta** | `diff` — syntax-highlighted diffs |
+| `cd` | **zoxide** | `cd` — smart jump (learns from usage) |
+| — | **fd** | `find` (not aliased — different CLI) |
+| — | **ripgrep** (`rg`) | `grep` (not aliased — different CLI) |
+| — | **tealdeer** (`tldr`) | `man` (not aliased — different CLI) |
+
+### System monitoring
+
+| Tool | Notes |
+|---|---|
+| **btop** | `top` replacement — custom pastel-rainbow theme, proc tree, per-core CPU |
+| **fastfetch** | System info banner |
+| **macchina** | Lightweight system info |
+| **hyfetch** | Pride-flag system info banner |
+| **colima** | Docker/container runtime for macOS (lightweight alternative to Docker Desktop) |
+
+### Networking
+
+| Tool | Notes |
+|---|---|
+| **tailscale** | Mesh VPN — remote access between machines (node `love` at `100.73.134.15`) |
+| **nmap** | Port scanner |
+| **curl** | HTTP client |
+| **dig** | DNS lookups |
+| **mtr** | Traceroute + ping combined |
+
+### Toolchains
+
+- **Node.js 22** (`node`, `npm`, `npx`) — replaces the old Homebrew nvm lazy-load
+- **Rust** (`rustc`, `cargo`, `rustfmt`, `clippy`, `rust-analyzer`)
+- **Clang / C++** (`clang`, `clang++` with `-std=c++20` alias, `clangd`, `cmake`)
+- **Python 3** (`python`, `pip` aliases); **uv** for fast package/project management
+- **tree-sitter CLI** — used by nvim-treesitter to compile parsers
+
+### Clipboard
+
+| Script | Notes |
+|---|---|
+| **clipd** | Daemon that polls `pbpaste` (macOS) or Wayland clipboard and stores history under `~/.local/share/cliph/`. Runs as a launchd agent on macOS; auto-started from zshrc on Linux/Wayland. |
+| **cliph** | fzf picker over clipboard history — bound to `^Y` in zsh insert-mode and `prefix+y` in tmux. |
+
+### Shell scripts (`.local/bin`)
+
+| Script | Notes |
+|---|---|
+| `tmux-sessionizer` | `prefix+f` — fzf menu to create/switch tmux sessions by project dir (config: `~/.config/tmux/sessionizer.toml`) |
+| `tmux-launcher` | `prefix+g` — quick-launch menu for common commands in new windows/panes |
+| `tmux-sessionizer-menu` | `display-menu` variant of the sessionizer |
+| `tmux-rainbow` | Renders the sine-wave pastel-rainbow gradient in the tmux status bar |
+| `tmux-agent-monitor` | Monitors AI agent panes and alerts on completion/errors |
+| `tmux-ssh-menu` | `prefix+s` — fzf menu for SSH connections |
+| `tmux-remote-shell` | Opens a remote shell in a new tmux split via SSH |
+| `tmux-resurrect-prune` | Prunes old tmux-resurrect save files |
+| `tmux-continuum-ensure-hook` | Ensures continuum save hooks are registered |
+| `tmux-conf-info` | Prints a summary of active tmux configuration |
+| `rainbow-prompt` | Generates the starship custom module gradient (called by `starship.toml`) |
+| `taskfzf` | fzf interface for Taskwarrior tasks |
+| `clipd` / `cliph` | Clipboard history daemon + picker (see Clipboard above) |
+| `copilot-sessions` | GitHub Copilot CLI session manager |
+| `install-tailscaled-daemon` | One-shot script to install the tailscale daemon service |
+| `wsl-sync-dns` | Syncs WSL `/etc/resolv.conf` with the Windows DNS config |
+| `fix-sudo-path` | Fixes `sudo` PATH on WSL so Nix-installed tools are available under sudo |
+| `enable-wake-on-lan` | Enables Wake-on-LAN on the active network interface |
+| `install-sshd-daemon` | (Linux) Sets up the openssh daemon as a user service |
