@@ -1,20 +1,28 @@
 #!/usr/bin/env bash
 # Clipboard history picker.
-# macOS: uses CopyQ's CLI (copyq eval/read/select).
+# macOS: reads entries from ~/.local/share/cliph/ (written by clipd).
 # Linux: uses cliphist + wl-copy.
 # Set CLIPH_PRINT=1 to write selection to stdout (used by the zsh ^Y widget).
 
+CLIPH_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/cliph"
+
 if [[ "$(uname)" == Darwin ]]; then
-  selected=$(copyq eval -- \
-    'var o="";for(var i=0;i<count();i++){var t=str(read(i));o+=i+"\t"+t.split("\n")[0].substring(0,200)+"\n";}print(o);' \
-    2>/dev/null \
-    | fzf --prompt 'cliph> ' --delimiter=$'\t' --with-nth=2..) \
+  if [[ ! -s "$CLIPH_DIR/history" ]]; then
+    printf 'No clipboard history yet — is clipd running?\n' >&2
+    exit 1
+  fi
+  selected=$(tac "$CLIPH_DIR/history" \
+    | fzf --prompt 'cliph> ' --no-sort \
+        --delimiter=$'\t' --with-nth=2..) \
     || exit 0
-  idx=$(printf '%s' "$selected" | cut -f1)
+  ts=$(printf '%s' "$selected" | cut -f1)
+  if [[ ! -f "$CLIPH_DIR/entries/$ts" ]]; then
+    printf 'Entry missing: %s\n' "$ts" >&2; exit 1
+  fi
   if [[ "${CLIPH_PRINT:-0}" == 1 ]]; then
-    copyq read "$idx"
+    cat "$CLIPH_DIR/entries/$ts"
   else
-    copyq select "$idx"
+    pbcopy < "$CLIPH_DIR/entries/$ts"
   fi
 else
   _copy() {

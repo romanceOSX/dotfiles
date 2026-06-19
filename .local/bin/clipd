@@ -1,33 +1,49 @@
 #!/usr/bin/env bash
 # Clipboard history daemon.
-# macOS: starts the CopyQ server (.app bundle) if not already running.
+# macOS: polls pbpaste every second, stores entries under ~/.local/share/cliph/.
+#        Launched by a launchd agent so PATH must be set explicitly here.
 # Linux: pipes wl-paste clipboard change events into cliphist store.
-# Linux instance is guarded by a PID file to prevent duplicates.
+#        Guarded by a PID file to prevent duplicate instances.
 
 if [[ "$(uname)" == Darwin ]]; then
-  copyq count >/dev/null 2>&1 && exit 0  # server already up
-  for app_dir in \
-    "$HOME/.nix-profile/Applications" \
-    "/etc/profiles/per-user/$USER/Applications" \
-    "$HOME/Applications" \
-    "/Applications"; do
-    if [[ -d "$app_dir/CopyQ.app" ]]; then
-      open "$app_dir/CopyQ.app"
-      exit 0
+  # launchd starts with a bare PATH; pull in nix-profile tools (tac, head, etc.)
+  export PATH="$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/bin:/bin"
+
+  CLIPH_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/cliph"
+  mkdir -p "$CLIPH_DIR/entries"
+  last=""
+  while true; do
+    current=$(pbpaste 2>/dev/null) || { sleep 1; continue; }
+    if [[ "$current" != "$last" && -n "$current" ]]; then
+      ts=$(date +%s)
+      preview=$(printf '%s' "$current" | head -1 | cut -c1-200)
+      printf '%s\t%s\n' "$ts" "$preview" >> "$CLIPH_DIR/history"
+      printf '%s' "$current" > "$CLIPH_DIR/entries/$ts"
+      last="$current"
+      # Trim to 500 entries
+      line_count=$(wc -l < "$CLIPH_DIR/history" | tr -d '[:space:]')
+      if (( line_count > 500 )); then
+        excess=$(( line_count - 500 ))
+        head -"$excess" "$CLIPH_DIR/history" | while IFS=$'\t' read -r ts_old _; do
+          rm -f "$CLIPH_DIR/entries/$ts_old"
+        done
+        tail -500 "$CLIPH_DIR/history" > "$CLIPH_DIR/history.tmp" \
+          && mv "$CLIPH_DIR/history.tmp" "$CLIPH_DIR/history"
+      fi
     fi
+    sleep 1
   done
-  exit 1
+else
+  CLIPH_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/cliph"
+  PIDFILE="$CLIPH_DIR/daemon.pid"
+  mkdir -p "$CLIPH_DIR"
+
+  if [[ -f "$PIDFILE" ]]; then
+    pid=$(< "$PIDFILE")
+    kill -0 "$pid" 2>/dev/null && exit 0
+  fi
+  echo $$ > "$PIDFILE"
+  trap 'rm -f "$PIDFILE"' EXIT INT TERM
+
+  wl-paste --watch cliphist store
 fi
-
-CLIPH_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/cliph"
-PIDFILE="$CLIPH_DIR/daemon.pid"
-mkdir -p "$CLIPH_DIR"
-
-if [[ -f "$PIDFILE" ]]; then
-  pid=$(< "$PIDFILE")
-  kill -0 "$pid" 2>/dev/null && exit 0
-fi
-echo $$ > "$PIDFILE"
-trap 'rm -f "$PIDFILE"' EXIT INT TERM
-
-wl-paste --watch cliphist store

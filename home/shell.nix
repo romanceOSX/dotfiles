@@ -231,18 +231,14 @@
       bindkey -M viins '^O' _page-last-output
 
 
-      # --- clipboard history daemon auto-start ---
-      # macOS: starts CopyQ if not already running.
-      # Linux: starts clipd (wl-paste → cliphist) when Wayland is available.
+      # --- clipboard history daemon auto-start (Linux/Wayland only) ---
+      # macOS: launchd agent (see launchd.agents.clipd below) handles this.
+      # Linux: start clipd when Wayland is available (WSLg sets WAYLAND_DISPLAY).
       function _clipd-ensure() {
-        if [[ "$(uname)" == Darwin ]]; then
-          command -v copyq >/dev/null 2>&1 && clipd &>/dev/null &!
-        else
-          [[ -n "''${WAYLAND_DISPLAY:-}" ]] || return
-          local pidfile="''${XDG_DATA_HOME:-$HOME/.local/share}/cliph/daemon.pid"
-          { [[ -f "$pidfile" ]] && kill -0 "$(<"$pidfile")" 2>/dev/null; } && return
-          command -v clipd >/dev/null 2>&1 && clipd &>/dev/null &!
-        fi
+        [[ -n "''${WAYLAND_DISPLAY:-}" ]] || return
+        local pidfile="''${XDG_DATA_HOME:-$HOME/.local/share}/cliph/daemon.pid"
+        { [[ -f "$pidfile" ]] && kill -0 "$(<"$pidfile")" 2>/dev/null; } && return
+        command -v clipd >/dev/null 2>&1 && clipd &>/dev/null &!
       }
       _clipd-ensure
       unfunction _clipd-ensure
@@ -346,5 +342,18 @@
     enable = true;
     enableZshIntegration = true;
     settings = builtins.fromTOML (builtins.readFile ./starship.toml);
+  };
+
+  # ---------------------------------------------------------------------------
+  # clipd launchd agent (macOS only) — polls pbpaste and stores clipboard
+  # history under ~/.local/share/cliph/. KeepAlive restarts on crash/logout.
+  # ---------------------------------------------------------------------------
+  launchd.agents.clipd = lib.mkIf pkgs.stdenv.isDarwin {
+    enable = true;
+    config = {
+      ProgramArguments = [ "${config.home.homeDirectory}/.local/bin/clipd" ];
+      RunAtLoad = true;
+      KeepAlive = true;
+    };
   };
 }
