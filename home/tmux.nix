@@ -128,6 +128,11 @@ in
       bind X kill-session
       set-hook -g after-new-session 'resize-pane -D 1'
 
+      # Auto-close dead panes in aoe agent sessions (aoe sets remain-on-exit on
+      # its panes, which would otherwise leave a "Pane is dead" message when a
+      # session is stopped). The main "aoe" dashboard session is unaffected.
+      set-hook -g pane-died 'if-shell "case \"#{session_name}\" in aoe_*) exit 0;; *) exit 1;; esac" "kill-pane"'
+
       # NOTE: don't add window-size hooks for aoe (agent-of-empires) sessions —
       # aoe owns its own sizing and such hooks just race its per-frame resize
       # (caused a fill-then-shrink flicker). See git history (~mid-2026).
@@ -148,6 +153,10 @@ in
       bind t display-popup -E -w 30% -h 40% "tmux-launcher"
       bind T display-popup -E -w 90% -h 90% "taskwarrior-tui"
       bind C-l send-keys 'clear' Enter
+      # <prefix>y: clipboard history picker — opens cliph in a popup, pastes the
+      # selection into the pane that triggered the binding (covers any app running
+      # inside tmux: claude CLI, copilot CLI, editors in terminal mode, etc.).
+      bind y display-popup -E "tmp=$(mktemp) && CLIPH_PRINT=1 ~/.local/bin/cliph 2>/dev/null >$tmp && [ -s $tmp ] && tmux load-buffer $tmp && tmux paste-buffer -t '#{pane_id}'; rm -f $tmp"
       # <prefix>i: a config/continuum/server info window (tmux-conf-info reads the
       # snapshot dir + retention cap so it stays in sync with the prune below).
       bind i display-popup -E -w 80% -h 80% "tmux-conf-info '${resurrectDir}' '${toString keepLastSnapshots}'"
