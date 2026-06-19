@@ -6,7 +6,8 @@ Claude Code reads these via `CLAUDE.md`, which imports this file.
 ## Compatibility Rules
 
 All the decisions and implementations of this repo should consider the following platforms in mind:
-- WSL (on x64 Windows Architecture) 
+
+- WSL (on x64 Windows Architecture)
 - MacOS
 
 Everything must be managed through nix (not homebrew, not apt) unless explicitly stated
@@ -35,7 +36,7 @@ See `README.md` for full setup and migration details.
 
 ## Making changes
 
-- Edit a `home/*.nix` module or a referenced config file, then run:
+- Every time we edit `home/*.nix` module or a referenced config file, then run:
   ```sh
   home-manager switch --flake .#<host>   # host: osx | wsl | debian | pi | work
   ```
