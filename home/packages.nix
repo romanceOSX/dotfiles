@@ -87,6 +87,8 @@
             # zoxide (cd) is wired via programs.zoxide in shell.nix.
             # fzf (history/fuzzy) is wired via programs.fzf in shell.nix.
 
+            tokscale # token usage tracker for agentic coding tools (Claude Code, etc.)
+
             # --- networking ---
             nmap # port scanner
             curl # HTTP client

@@ -116,6 +116,7 @@
       # CLIs differ enough that aliasing breaks flags and pipelines. Use the new
       # tools by name (`fd`, `rg`, `tldr`); `cd` is replaced by zoxide below.
 
+      toks = "tokscale";
       lg = "lazygit";
       g = "git";
       pip = "pip3";
