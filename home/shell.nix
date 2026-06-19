@@ -130,6 +130,7 @@
       cmd = "cmd.exe /c";
       posh = "powershell.exe -NoProfile -Command";
       clip = "pbcopy"; # pipe stdout to clipboard; overridden to wl-copy on Linux
+      reload = "exec $SHELL";
     } // lib.optionalAttrs pkgs.stdenv.isLinux {
       open = "xdg-open"; # macOS has a native `open`
       clip = "wl-copy";
