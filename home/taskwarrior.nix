@@ -123,6 +123,40 @@ in
     taskopen # open annotations (URLs/files) from a task
   ];
 
+  # --- taskopen config -------------------------------------------------------
+  # macOS has `open` instead of `xdg-open`; generate the right opener per platform.
+  xdg.configFile."taskopen/taskopenrc".text =
+    let opener = if pkgs.stdenv.isDarwin then "open" else "xdg-open";
+    in ''
+      [General]
+      path_ext=${pkgs.taskopen}/share/taskopen/scripts
+
+      [Actions]
+      notes.regex = "^Notes\\.(.*)"
+      notes.command = "editnote ~/Notes/tasknotes/$UUID.$LAST_MATCH \"$TASK_DESCRIPTION\" $UUID"
+
+      files.regex = "^[\\.\\/~]+.*\\.(.*)"
+      files.command = "${opener} $FILE"
+      files.filtercommand = "test -e $FILE"
+
+      url.regex = "((?:www|http).*)"
+      url.command = "${opener} $LAST_MATCH"
+
+      edit.regex = ".*"
+      edit.command = "rawedit $UUID \"$ANNOTATION\""
+      delete.regex = ".*"
+      delete.command = "task $UUID denotate -- \"$ANNOTATION\" 2>/dev/null"
+
+      [CLI]
+      default = default
+      alias.default = "normal --exclude=edit,delete"
+      alias.files  = "normal --include=files"
+      alias.notes  = "normal --include=notes"
+      alias.edit   = "normal --include=edit"
+      alias.delete = "normal --include=delete"
+      alias.raw    = "any --include=delete,edit"
+    '';
+
   # --- Hooks (deployed into <data.location>/hooks) ---------------------------
   home.file = {
     # Timewarrior <-> Taskwarrior bridge: starts/stops a timew interval when a
