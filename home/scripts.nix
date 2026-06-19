@@ -69,6 +69,18 @@
       source = ../.local/bin/copilot-sessions;
       executable = true;
     };
+    ".local/bin/taskfzf" = {
+      source = ../.local/bin/taskfzf;
+      executable = true;
+    };
+    ".local/bin/clipd" = {
+      source = ../.local/bin/clipd;
+      executable = true;
+    };
+    ".local/bin/cliph" = {
+      source = ../.local/bin/cliph;
+      executable = true;
+    };
   }
   # WSL-only helpers — keep these off macOS so they don't bloat that config.
   // lib.optionalAttrs isWSL {

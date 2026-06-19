@@ -118,7 +118,6 @@ in
   };
 
   home.packages = with pkgs; [
-    taskwarrior-tui # TUI frontend (the yazi/lazygit of tasks)
     timewarrior # time tracking
     taskopen # open annotations (URLs/files) from a task
   ];
@@ -184,8 +183,8 @@ in
   };
 
   programs.zsh.shellAliases = {
-    tt = "taskwarrior-tui"; # jump straight into the TUI
-    todo = "taskwarrior-tui"; # alias for the TUI
+    tf = "taskfzf"; # fzf UI for taskwarrior
+    todo = "taskfzf";
     tn = "task next"; # what's next
     ta = "task add"; # quick capture
     tsync = "task sync"; # manual sync (auto-sync covers normal use)

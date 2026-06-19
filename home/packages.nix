@@ -104,6 +104,7 @@
             # macOS ships these; on Linux pull them in for the scripts/clipboard yank.
             pkgs.xclip
             pkgs.wl-clipboard
+            pkgs.cliphist
             pkgs.inetutils # `hostname` for rainbow-prompt
             pkgs.xdg-utils # provides xdg-open (aliased to `open` in shell.nix)
             pkgs.iproute2 # `ip` / `ss` — Linux-native, not available on macOS

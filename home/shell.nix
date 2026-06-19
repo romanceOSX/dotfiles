@@ -125,8 +125,10 @@
       vi = "nvim";
       cansniff = "cmd.exe /c cansniff.exe";
       cmd = "cmd.exe /c";
+      clip = "pbcopy"; # pipe stdout to clipboard; overridden to wl-copy on Linux
     } // lib.optionalAttrs pkgs.stdenv.isLinux {
       open = "xdg-open"; # macOS has a native `open`
+      clip = "wl-copy";
     };
 
     # fzf-tab — fuzzy Tab completion. Sourced after compinit by HM.
@@ -227,6 +229,36 @@
       }
       zle -N _page-last-output
       bindkey -M viins '^O' _page-last-output
+
+
+      # --- clipboard history daemon auto-start ---
+      # macOS: starts CopyQ if not already running.
+      # Linux: starts clipd (wl-paste → cliphist) when Wayland is available.
+      function _clipd-ensure() {
+        if [[ "$(uname)" == Darwin ]]; then
+          command -v copyq >/dev/null 2>&1 && clipd &>/dev/null &!
+        else
+          [[ -n "''${WAYLAND_DISPLAY:-}" ]] || return
+          local pidfile="''${XDG_DATA_HOME:-$HOME/.local/share}/cliph/daemon.pid"
+          { [[ -f "$pidfile" ]] && kill -0 "$(<"$pidfile")" 2>/dev/null; } && return
+          command -v clipd >/dev/null 2>&1 && clipd &>/dev/null &!
+        fi
+      }
+      _clipd-ensure
+      unfunction _clipd-ensure
+
+      # --- ^Y — clipboard history picker (cliph) ---
+      # Opens the fzf picker; inserts selected text into the command line.
+      function _cliph-widget() {
+        local result
+        result=$(CLIPH_PRINT=1 cliph 2>/dev/null) || return
+        [[ -z "$result" ]] && return
+        LBUFFER+="$result"
+        zle redisplay
+      }
+      zle -N _cliph-widget
+      bindkey -M viins '^Y' _cliph-widget
+
 
       # --- run-help: drop zsh's default `run-help=man` alias (the last alias
       # still pointing at a legacy util) for the smarter autoloaded function,
