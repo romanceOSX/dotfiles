@@ -115,8 +115,8 @@
       # NOTE: find/grep/man are intentionally NOT aliased to fd/rg/tldr — their
       # CLIs differ enough that aliasing breaks flags and pipelines. Use the new
       # tools by name (`fd`, `rg`, `tldr`); `cd` is replaced by zoxide below.
-      tldrf = "tldr --list | tr ', ' '\\n' | fzf --preview 'tldr {} --color=always'";
-      how = "tldr --list | tr ', ' '\\n' | fzf --preview 'tldr {} --color=always'";
+      tldrf = "head -n 2 $HOME/Library/Caches/tealdeer/pages/*/*/*.md | grep -E '^==|^>' | paste -d ' ' - - | sed 's/# //g' | fzf --preview 'tldr {1} --color=always'";
+      how = "head -n 2 $HOME/Library/Caches/tealdeer/pages/*/*/*.md | grep -E '^==|^>' | paste -d ' ' - - | sed 's/# //g' | fzf --preview 'tldr {1} --color=always'";
 
       toks = "tokscale";
       lg = "lazygit";
@@ -133,6 +133,8 @@
     } // lib.optionalAttrs pkgs.stdenv.isLinux {
       open = "xdg-open"; # macOS has a native `open`
       clip = "wl-copy";
+      tldrf = "head -n 2 $HOME/.cache/tealdeer/pages/*/*/*.md | grep -E '^==|^>' | paste -d ' ' - - | sed 's/# //g' | fzf --preview 'tldr {1} --color=always'";
+      how = "head -n 2 $HOME/.cache/tealdeer/pages/*/*/*.md | grep -E '^==|^>' | paste -d ' ' - - | sed 's/# //g' | fzf --preview 'tldr {1} --color=always'";
     };
 
     # fzf-tab — fuzzy Tab completion. Sourced after compinit by HM.
