@@ -44,7 +44,7 @@
       #   isWSL          — true under WSL (Syncthing then runs on the Windows host,
       #                    not via nix). Defaults to false (bare Linux / macOS).
       mkHome =
-        { system, username, homeDirectory, isWSL ? false }:
+        { system, username, homeDirectory, isWSL ? false, includeAoe ? true }:
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
             inherit system;
@@ -56,7 +56,9 @@
               config.allowUnfree = true;
             };
             # Agent of Empires `aoe` binary, built from its own flake.
-            aoe = agent-of-empires.packages.${system}.default;
+            # Set includeAoe = false for hosts where compiling Rust from source
+            # is impractical (e.g. Raspberry Pi with no binary cache).
+            aoe = if includeAoe then agent-of-empires.packages.${system}.default else null;
             inherit isWSL;
           };
           modules = [
@@ -101,10 +103,13 @@
 
         # Raspberry Pi (64-bit Raspberry Pi OS / Debian Bookworm, aarch64).
         # Identity is hardcoded so the headless Pi needs no local.nix.
+        # aoe is excluded — no binary cache for aarch64-linux means compiling
+        # ~761 Rust crates from source, which takes hours on Pi hardware.
         "pi" = mkHome {
           system = "aarch64-linux";
-          username = "love";
-          homeDirectory = "/home/love";
+          username = "romance";
+          homeDirectory = "/home/romance";
+          includeAoe = false;
         };
       };
     };

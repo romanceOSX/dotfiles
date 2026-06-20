@@ -16,8 +16,9 @@
 
             # --- AI agent session manager (flake input, see flake.nix) ---
             # `aoe` — run multiple AI coding agents in parallel across branches.
-            aoe
+            # null on hosts where includeAoe = false (e.g. Pi — no aarch64 cache).
         ]
+        ++ lib.optional (aoe != null) aoe
         ++ (with pkgs; [
             # --- toolchains (chosen via setup) ---
             nodejs_22 # Node.js (replaces the homebrew nvm lazy-load on nix hosts)
