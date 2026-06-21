@@ -87,7 +87,15 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-    sudo systemctl daemon-reload
+    # daemon-reload can exit non-zero on systems that have stale linked unit
+    # files (e.g. a spurious /etc/systemd/system/sshd.service symlink left by
+    # openssh packages on Ubuntu). Those errors don't affect tailscaled — check
+    # that the reload actually registered our new unit instead of failing fast.
+    sudo systemctl daemon-reload 2>&1 | grep -v 'linked unit file' >&2 || true
+    if ! systemctl cat tailscaled.service >/dev/null 2>&1; then
+        echo "error: daemon-reload did not register tailscaled.service" >&2
+        exit 1
+    fi
     sudo systemctl enable tailscaled
     sudo systemctl restart tailscaled
 
