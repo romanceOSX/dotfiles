@@ -101,6 +101,14 @@
           inherit (local) username homeDirectory;
         };
 
+        # Build server (bare-metal Ubuntu, x86_64, Intel i7-8750H 6c/12t, 14 GB).
+        # Identity is hardcoded — no local.nix needed on the headless server.
+        "alien" = mkHome {
+          system = "x86_64-linux";
+          username = "romance";
+          homeDirectory = "/home/romance";
+        };
+
         # Raspberry Pi (64-bit Raspberry Pi OS / Debian Bookworm, aarch64).
         # Identity is hardcoded so the headless Pi needs no local.nix.
         # aoe is excluded — no binary cache for aarch64-linux means compiling
