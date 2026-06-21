@@ -312,6 +312,16 @@
               sudo lsof -i -P -n | grep LISTEN
           fi
       }
+
+      # --- heavy: dispatch a command (or open a shell) on alien, the designated
+      # heavy-processing node. Usage: heavy [cmd [args...]]
+      function heavy() {
+          if [[ $# -eq 0 ]]; then
+              ssh alien
+          else
+              ssh alien -- "$@"
+          fi
+      }
     '';
   };
 

@@ -64,6 +64,11 @@ cmd   = "tmux-ssh-menu"
 
 # ── SSH remotes (consumed by tmux-ssh-menu / <prefix>f s) ──────────────────
 [[ssh]]
+host  = "alien"
+label = "alienware · heavy processing"
+dirs  = ["~", "~/git"]
+
+[[ssh]]
 host  = "pi"
 label = "raspberry pi"
 dirs  = ["~", "~/git"]
