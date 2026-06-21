@@ -5,9 +5,9 @@ hosts:
     AddKeysToAgent: yes
 
   pi:
-    HostName: pi.tail7d73af.ts.net
+    HostName: 100.88.214.84
     User: romance
 
   alien:
-    HostName: alien.tail7d73af.ts.net
+    HostName: 100.104.20.52
     User: romance
