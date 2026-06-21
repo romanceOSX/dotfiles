@@ -90,6 +90,7 @@
 
             just # command runner (Makefile alternative)
             tokscale # token usage tracker for agentic coding tools (Claude Code, etc.)
+            phoronix-test-suite # open-source automated benchmarking suite
 
             # --- networking ---
             nmap # port scanner
@@ -107,7 +108,6 @@
             pkgs.pngpaste
         ]
         ++ lib.optionals pkgs.stdenv.isLinux [
-            pkgs.phoronix-test-suite # open-source automated benchmarking suite
             # macOS ships these; on Linux pull them in for the scripts/clipboard yank.
             pkgs.xclip
             pkgs.wl-clipboard
