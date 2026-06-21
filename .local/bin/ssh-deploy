@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Push ~/.ssh/assh.yml to all tailscale SSH nodes.
+set -euo pipefail
+
+src="$HOME/.ssh/assh.yml"
+hosts=(pi alien)
+
+for host in "${hosts[@]}"; do
+    printf 'assh.yml → %s\n' "$host"
+    scp "$src" "${host}:~/.ssh/assh.yml"
+done
+printf 'done\n'

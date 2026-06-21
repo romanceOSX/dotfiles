@@ -1,0 +1,13 @@
+hosts:
+  github.com:
+    HostName: github.com
+    IdentityFile: ~/.ssh/id_ed25519
+    AddKeysToAgent: yes
+
+  pi:
+    HostName: pi.tail7d73af.ts.net
+    User: romance
+
+  alien:
+    HostName: alien.tail7d73af.ts.net
+    User: romance

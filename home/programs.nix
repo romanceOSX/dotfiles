@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 {
   # ---------------------------------------------------------------------------
   # lazygit — pastel-rainbow theme
@@ -171,6 +171,13 @@
       hunk-header-decoration-style = "#94F7E4 box"; # mint
       hunk-header-line-number-style = "#9EC4FE"; # blue
     };
+  };
+
+  # assh — ~/.ssh/assh.yml is the source of truth for SSH host definitions.
+  # On Darwin it is nix-symlinked here; on Linux nodes it is pushed as a plain
+  # file by `ssh-deploy` (scp from this machine), so no home.file entry there.
+  home.file.".ssh/assh.yml" = lib.mkIf pkgs.stdenv.isDarwin {
+    source = ./assh.yml;
   };
 
   # ---------------------------------------------------------------------------

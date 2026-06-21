@@ -81,6 +81,10 @@
       source = ../.local/bin/cliph;
       executable = true;
     };
+    ".local/bin/ssh-deploy" = {
+      source = ../.local/bin/ssh-deploy;
+      executable = true;
+    };
   }
   # WSL-only helpers — keep these off macOS so they don't bloat that config.
   // lib.optionalAttrs isWSL {
