@@ -90,6 +90,7 @@
 
             just # command runner (Makefile alternative)
             tokscale # token usage tracker for agentic coding tools (Claude Code, etc.)
+            geekbench_6 # cross-platform CPU/GPU benchmark
 
             # --- networking ---
             nmap # port scanner
