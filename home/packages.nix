@@ -90,7 +90,6 @@
 
             just # command runner (Makefile alternative)
             tokscale # token usage tracker for agentic coding tools (Claude Code, etc.)
-            geekbench_6 # cross-platform CPU/GPU benchmark
 
             # --- networking ---
             nmap # port scanner
@@ -108,6 +107,7 @@
             pkgs.pngpaste
         ]
         ++ lib.optionals pkgs.stdenv.isLinux [
+            pkgs.geekbench_6 # cross-platform CPU/GPU benchmark (Linux aarch64 + x86_64 only)
             # macOS ships these; on Linux pull them in for the scripts/clipboard yank.
             pkgs.xclip
             pkgs.wl-clipboard
