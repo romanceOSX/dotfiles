@@ -107,7 +107,7 @@
             pkgs.pngpaste
         ]
         ++ lib.optionals pkgs.stdenv.isLinux [
-            pkgs.geekbench_6 # cross-platform CPU/GPU benchmark (Linux aarch64 + x86_64 only)
+            pkgs.phoronix-test-suite # open-source automated benchmarking suite
             # macOS ships these; on Linux pull them in for the scripts/clipboard yank.
             pkgs.xclip
             pkgs.wl-clipboard
