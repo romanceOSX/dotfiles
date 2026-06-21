@@ -98,6 +98,8 @@
             dig # DNS lookups (from bind)
             mtr # traceroute + ping combined
             tailscale # mesh VPN — remote access between machines
+            sshm # SSH bookmark manager
+            assh # SSH proxy/wrapper with advanced config
         ])
         ++ lib.optionals pkgs.stdenv.isDarwin [
             # `ip` shim wrapping ifconfig/netstat/route. Partial coverage of the
