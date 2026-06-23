@@ -121,6 +121,8 @@
             pkgs.inetutils # `hostname` for rainbow-prompt
             pkgs.xdg-utils # provides xdg-open (aliased to `open` in shell.nix)
             pkgs.iproute2 # `ip` / `ss` — Linux-native, not available on macOS
+            pkgs.ethtool # wired link speed/duplex — used by `netbench`
+            pkgs.iw # Wi-Fi link rate + signal (dBm) — used by `netbench`
             # openssh provides `sshd` for the WSL ssh service (remote access into
             # this machine). macOS ships its own sshd, so this is Linux-only.
             # Use the GSSAPI-enabled build: this package's `ssh` shadows the

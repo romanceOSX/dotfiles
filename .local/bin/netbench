@@ -1,0 +1,232 @@
+#!/usr/bin/env bash
+# netbench — unified link-speed / signal-quality / latency report per interface.
+#
+# One command to compare network mediums (wired vs Wi-Fi) on a host: for every
+# real interface it prints the negotiated link speed, Wi-Fi signal (dBm + an
+# approximate quality %), and a latency/jitter/loss measurement from a ping run.
+#
+# Usage:
+#   netbench [options] [target]
+#
+#   target          host/IP to ping for the latency test
+#                   (default: the system's default-route gateway)
+#
+# Options:
+#   -c N            ping count (default: 20)
+#   -i IFACE        restrict the report to a single interface
+#   -6              also show IPv6 addresses
+#   -h, --help      this help
+#
+# Examples:
+#   netbench                 # all interfaces, ping the gateway
+#   netbench 1.1.1.1         # all interfaces, ping 1.1.1.1
+#   netbench -i enp70s0      # just the wired NIC
+#   netbench -c 50 osx.local # 50-packet run against a host
+#
+# Per-interface latency binding:
+#   - If `ping` supports `-I <iface>` (BSD/iputils) it is used directly.
+#   - Otherwise, on Linux with root, a temporary `/32` host route pins the probe
+#     to the interface (auto-removed afterwards). Without either, the test falls
+#     back to the default route and is marked "(default route)".
+#
+# Cross-platform: validated on Linux (ip/ethtool/iw); macOS paths are
+# best-effort (ifconfig/networksetup/wdutil) and degrade gracefully when a
+# datum needs elevated privileges or isn't exposed.
+set -u
+
+COUNT=20
+ONLY_IFACE=""
+SHOW_V6=0
+TARGET=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -c) COUNT="$2"; shift 2 ;;
+    -i) ONLY_IFACE="$2"; shift 2 ;;
+    -6) SHOW_V6=1; shift ;;
+    -h|--help) sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -*) echo "netbench: unknown option '$1'" >&2; exit 2 ;;
+    *)  TARGET="$1"; shift ;;
+  esac
+done
+
+OS="$(uname -s)"
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# --- default gateway (ping target fallback) ---------------------------------
+default_gateway() {
+  case "$OS" in
+    Linux)  ip route show default 2>/dev/null | awk '{for(i=1;i<=NF;i++)if($i=="via"){print $(i+1);exit}}' ;;
+    Darwin) route -n get default 2>/dev/null | awk '/gateway:/{print $2;exit}' ;;
+  esac
+}
+
+# --- interface enumeration --------------------------------------------------
+# Emits candidate interface names, skipping loopback / virtual / tunnel devices.
+list_ifaces() {
+  case "$OS" in
+    Linux)
+      ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | sed 's/@.*//' \
+        | grep -vE '^(lo|docker|veth|br-|virbr|tailscale|tun|tap|wg|p2p|enp.*\.|vmnet)' ;;
+    Darwin)
+      ifconfig -l 2>/dev/null | tr ' ' '\n' \
+        | grep -vE '^(lo|gif|stf|bridge|utun|awdl|llw|p2p|ap|vmenet)' ;;
+  esac
+}
+
+# wifi | wired
+iface_type() {
+  local i="$1"
+  case "$OS" in
+    Linux)  [ -d "/sys/class/net/$i/wireless" ] || iw dev "$i" info >/dev/null 2>&1 \
+              && echo wifi || echo wired ;;
+    Darwin) networksetup -listallhardwareports 2>/dev/null \
+              | awk -v d="$i" 'BEGIN{IGNORECASE=1} /Hardware Port/{p=$0} $0 ~ ("Device: "d"$"){print (p ~ /Wi-Fi|AirPort/)?"wifi":"wired"; exit}' ;;
+  esac
+}
+
+iface_state() {
+  case "$OS" in
+    Linux)  cat "/sys/class/net/$1/operstate" 2>/dev/null || echo "?" ;;
+    Darwin) ifconfig "$1" 2>/dev/null | awk '/status:/{print $2;f=1} END{if(!f)print "?"}' ;;
+  esac
+}
+
+iface_ipv4() {
+  case "$OS" in
+    Linux)  ip -4 -o addr show dev "$1" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | paste -sd, - ;;
+    Darwin) ifconfig "$1" 2>/dev/null | awk '/inet /{print $2}' | paste -sd, - ;;
+  esac
+}
+
+iface_ipv6() {
+  case "$OS" in
+    Linux)  ip -6 -o addr show dev "$1" scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | paste -sd, - ;;
+    Darwin) ifconfig "$1" 2>/dev/null | awk '/inet6 /&&!/fe80/{print $2}' | paste -sd, - ;;
+  esac
+}
+
+# --- link speed -------------------------------------------------------------
+link_speed() {
+  local i="$1" t="$2"
+  if [ "$OS" = Linux ]; then
+    if [ "$t" = wifi ] && have iw; then
+      # iw prints e.g. "tx bitrate: 866.7 MBit/s VHT-MCS 9 80MHz ..." — keep the rate only.
+      iw dev "$i" link 2>/dev/null | awk -F': ' '/tx bitrate/{split($2,w," "); print w[1]" "w[2]; f=1} END{if(!f)print "—"}'
+    elif have ethtool; then
+      ethtool "$i" 2>/dev/null | awk -F': ' '/Speed:/{print $2; f=1} END{if(!f)print "—"}'
+    else
+      local s; s=$(cat "/sys/class/net/$i/speed" 2>/dev/null)
+      [ -n "${s:-}" ] && [ "$s" -gt 0 ] 2>/dev/null && echo "${s} Mb/s" || echo "—"
+    fi
+  else # Darwin
+    if [ "$t" = wifi ]; then
+      /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I 2>/dev/null \
+        | awk -F': ' '/lastTxRate/{print $2" Mb/s"; f=1} END{if(!f)print "—"}'
+    else
+      ifconfig "$i" 2>/dev/null | awk -F'[()]' '/media:/&&/Base/{print $2; f=1} END{if(!f)print "—"}'
+    fi
+  fi
+}
+
+# --- wifi signal ------------------------------------------------------------
+# Approx quality %: linear map -100 dBm -> 0%, -50 dBm -> 100% (clamped).
+dbm_to_pct() { awk -v d="$1" 'BEGIN{q=2*(d+100); if(q<0)q=0; if(q>100)q=100; printf "%d", q}'; }
+
+wifi_signal() {
+  local i="$1"
+  if [ "$OS" = Linux ] && have iw; then
+    local dbm
+    dbm=$(iw dev "$i" link 2>/dev/null | awk '/signal:/{print $2; exit}')
+    [ -n "${dbm:-}" ] && echo "${dbm} dBm (~$(dbm_to_pct "$dbm")%)" || echo "—"
+  elif [ "$OS" = Darwin ]; then
+    local out dbm
+    out=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I 2>/dev/null)
+    dbm=$(echo "$out" | awk -F': ' '/agrCtlRSSI/{print $2; exit}')
+    [ -n "${dbm:-}" ] && echo "${dbm} dBm (~$(dbm_to_pct "$dbm")%)" || echo "— (try: sudo wdutil info)"
+  else
+    echo "—"
+  fi
+}
+
+# --- ping (latency / jitter / loss) -----------------------------------------
+PING_HAS_I=""
+ping_supports_I() {
+  [ -n "$PING_HAS_I" ] && { [ "$PING_HAS_I" = yes ]; return; }
+  if ping -I lo -c1 -W1 127.0.0.1 >/dev/null 2>&1 || \
+     ping -I lo0 -c1 127.0.0.1 >/dev/null 2>&1; then PING_HAS_I=yes; else PING_HAS_I=no; fi
+  [ "$PING_HAS_I" = yes ]
+}
+
+# Parse an inetutils/iputils/BSD ping summary into "avg jitter loss%".
+parse_ping() {
+  awk '
+    /packet loss/ { for(i=1;i<=NF;i++) if($i ~ /%$/){ loss=$i } }
+    /min\/avg\/max/ {
+      n=split($0, a, "=")
+      split(a[2], b, "/")
+      gsub(/[^0-9.]/,"",b[2]); gsub(/[^0-9.]/,"",b[4])
+      avg=b[2]; jit=b[4]
+    }
+    END {
+      if (avg=="") { printf "—/— %s", (loss?loss:"100%") }
+      else printf "%.2f/%.2f ms  %s", avg, jit, (loss?loss:"?")
+    }'
+}
+
+# ping TARGET, optionally bound to IFACE (with SRCIP for the Linux route trick).
+ping_run() {
+  local iface="$1" srcip="$2" tgt="$3" note="" out
+  local args="-c $COUNT -i 0.2 -W 2"
+  if [ -n "$iface" ] && ping_supports_I; then
+    out=$(ping $args -I "$iface" "$tgt" 2>/dev/null)
+  elif [ -n "$iface" ] && [ "$OS" = Linux ] && [ "$(id -u)" = 0 ] && [ -n "$srcip" ]; then
+    ip route add "$tgt/32" dev "$iface" src "$srcip" 2>/dev/null
+    out=$(ping $args "$tgt" 2>/dev/null)
+    ip route del "$tgt/32" dev "$iface" src "$srcip" 2>/dev/null
+  else
+    [ -n "$iface" ] && note="  (default route)"
+    out=$(ping $args "$tgt" 2>/dev/null)
+  fi
+  printf '%s%s' "$(printf '%s\n' "$out" | parse_ping)" "$note"
+}
+
+# ----------------------------------------------------------------------------
+[ -z "$TARGET" ] && TARGET="$(default_gateway)"
+if [ -z "$TARGET" ]; then
+  echo "netbench: no ping target and no default gateway found — pass one explicitly" >&2
+  exit 1
+fi
+
+printf '\033[1mnetbench\033[0m  host=%s  os=%s  ping-target=%s  count=%s\n\n' \
+  "$(hostname)" "$OS" "$TARGET" "$COUNT"
+
+fmt="%-12s %-6s %-7s %-16s %-16s %-22s %s\n"
+# shellcheck disable=SC2059
+printf "$fmt" IFACE TYPE STATE IPV4 LINK-SPEED SIGNAL "PING avg/jitter loss"
+printf '%s\n' "----------------------------------------------------------------------------------------------------------"
+
+for i in $(list_ifaces); do
+  [ -n "$ONLY_IFACE" ] && [ "$i" != "$ONLY_IFACE" ] && continue
+  t=$(iface_type "$i")
+  st=$(iface_state "$i")
+  v4=$(iface_ipv4 "$i"); [ -z "$v4" ] && v4="—"
+  spd=$(link_speed "$i" "$t")
+  sig=$([ "$t" = wifi ] && wifi_signal "$i" || echo "—")
+  # Only run latency if the interface has an IPv4 and is up-ish.
+  if [ "$v4" != "—" ] && { [ "$st" = up ] || [ "$st" = unknown ] || [ "$st" = active ]; }; then
+    src=$(printf '%s' "$v4" | cut -d, -f1)
+    pg=$(ping_run "$i" "$src" "$TARGET")
+  else
+    pg="—  (no ipv4 / down)"
+  fi
+  # shellcheck disable=SC2059
+  printf "$fmt" "$i" "$t" "$st" "$v4" "$spd" "$sig" "$pg"
+  if [ "$SHOW_V6" = 1 ]; then
+    v6=$(iface_ipv6 "$i"); [ -n "$v6" ] && printf '%-12s %s\n' "" "ipv6: $v6"
+  fi
+done
+
+echo
+echo "tip: run per-interface latency cleanly with sudo (binds the probe to the NIC),"
+echo "     or test one medium in isolation by downing the other connection first."
