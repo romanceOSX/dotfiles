@@ -187,6 +187,25 @@
     recursive = true;
   };
 
+  # ghostty config — pastel-rainbow theme, 90% opacity, no blur (battery).
+  # Out-of-store symlink so edits to the repo file are live without a rebuild
+  # (same approach as nvim above); only requires the repo to live at this path.
+  xdg.configFile."ghostty/config".source =
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/dotfiles/home/ghostty/config";
+
+  # ghostty terminfo — SSHing *out* of Ghostty propagates TERM=xterm-ghostty,
+  # which non-Ghostty hosts (alien, pi, any embedded box) have never heard of;
+  # ncurses then falls back to a dumb profile and ^L/clear corrupts the display.
+  # Compile the entry with tic into ~/.terminfo, which the system ncurses on
+  # Debian/Ubuntu searches before the system dirs. Symlinking the whole tree
+  # avoids hardcoding the bucket dir (x/ vs hashed 78/, differs by build host).
+  # terminfo is an arch-independent data format, so this is fine on the Pi too.
+  home.file.".terminfo".source = pkgs.runCommandLocal "ghostty-terminfo"
+    { nativeBuildInputs = [ pkgs.ncurses ]; }
+    ''
+      tic -x -o "$out" ${./ghostty/xterm-ghostty.terminfo}
+    '';
+
   # ---------------------------------------------------------------------------
   # ssh — Home Manager manages ~/.ssh/config so it always has 600 permissions.
   # Prevents 'Bad owner or permissions on ~/.ssh/config' (manually-created

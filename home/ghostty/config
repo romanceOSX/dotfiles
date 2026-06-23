@@ -1,0 +1,39 @@
+# ghostty — pastel rainbow theme with 90% opacity transparent background.
+# Source of truth; symlinked to ~/.config/ghostty/config via home/programs.nix.
+
+# --- Font (SFMono Nerd Font Complete, 14pt) ---
+font-family = SFMono Nerd Font
+font-size = 14
+
+# --- Window / transparency ---
+# No background-blur: it noticeably increases GPU/battery draw.
+background-opacity = 0.90
+
+# --- Base colors ---
+# Darker base so pastels pop more
+background = 1a1a26
+foreground = e8e6f0
+cursor-color = ffb3d9
+cursor-text = 1a1a26
+selection-background = 5a4a6a
+selection-foreground = f5f3ff
+
+# --- Pastel rainbow palette (16 colors) ---
+# Normal
+palette = 0=3a3548
+palette = 1=ffb3ba
+palette = 2=baffc9
+palette = 3=ffffba
+palette = 4=bae1ff
+palette = 5=e0baff
+palette = 6=baf7ff
+palette = 7=e8e6f0
+# Bright
+palette = 8=6a6480
+palette = 9=ffc8cd
+palette = 10=cdffd8
+palette = 11=fffccb
+palette = 12=cce9ff
+palette = 13=ebcbff
+palette = 14=cbfaff
+palette = 15=ffffff
