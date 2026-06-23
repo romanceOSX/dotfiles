@@ -20,10 +20,18 @@
       url = "github:agent-of-empires/agent-of-empires";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # nix-darwin — macOS system layer. Used only for the things Home Manager
+    # can't express on macOS (root LaunchDaemons). See darwinConfigurations
+    # below and ./darwin. Follows the same nixpkgs so the system-managed
+    # tailscaled and the Home Manager tailscale CLI stay in lockstep.
+    nix-darwin = {
+      url = "github:nix-darwin/nix-darwin";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
-    { nixpkgs, nixpkgs-neovim, home-manager, agent-of-empires, ... }:
+    { nixpkgs, nixpkgs-neovim, home-manager, agent-of-empires, nix-darwin, ... }:
     let
       # Machine-local identity — each host defines local.nix once (gitignored).
       # Sensible personal defaults are merged with (and overridden by) local.nix,
@@ -119,6 +127,15 @@
           homeDirectory = "/home/romance";
           includeAoe = false;
         };
+      };
+
+      # macOS system layer (Apple Silicon). Standalone Home Manager still owns
+      # the user environment via homeConfigurations.osx above; nix-darwin manages
+      # only the system-level pieces Home Manager can't (the root tailscaled
+      # LaunchDaemon). Activate with:
+      #   sudo darwin-rebuild switch --flake .#osx
+      darwinConfigurations.osx = nix-darwin.lib.darwinSystem {
+        modules = [ ./darwin ];
       };
     };
 }

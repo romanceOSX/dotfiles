@@ -158,8 +158,11 @@
       # guard makes it return early — so nix never gets back in front and
       # /usr/bin/python3 (etc.) shadows the nix install. Re-assert the nix dirs at
       # the front here (~/.zshrc runs after path_helper, and isn't guarded).
+      # /run/current-system/sw/bin is the nix-darwin system profile — it carries
+      # darwin-rebuild and anything declared in ./darwin (see flake.nix
+      # darwinConfigurations.osx); without it those system tools aren't on PATH.
       typeset -U path
-      path=( "$HOME/.nix-profile/bin" /nix/var/nix/profiles/default/bin $path )
+      path=( "$HOME/.nix-profile/bin" /nix/var/nix/profiles/default/bin /run/current-system/sw/bin $path )
       export PATH
 '' + ''
       # --- eza pastel-rainbow theme ---
