@@ -108,6 +108,10 @@
             # pngpaste — dumps the clipboard image to a file; used by img-clip.nvim
             # (<leader>p) to paste screenshots into markdown. See nvim imgclip.lua.
             pkgs.pngpaste
+            # ghostty-bin ships the macOS .app bundle (the source build `ghostty`
+            # does not). The .app is linked into ~/Applications via home.file in
+            # programs.nix so Spotlight and Launchpad can find it.
+            pkgs.ghostty-bin
         ]
         ++ lib.optionals pkgs.stdenv.isLinux [
             # macOS ships these; on Linux pull them in for the scripts/clipboard yank.

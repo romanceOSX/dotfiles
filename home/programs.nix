@@ -180,6 +180,13 @@
     source = ./assh.yml;
   };
 
+  # ghostty — link the macOS .app bundle into ~/Applications so Spotlight and
+  # Launchpad can find it. ghostty-bin is the package that ships Applications/.
+  home.file."Applications/Ghostty.app" = lib.mkIf pkgs.stdenv.isDarwin {
+    source = "${pkgs.ghostty-bin}/Applications/Ghostty.app";
+    recursive = true;
+  };
+
   # ---------------------------------------------------------------------------
   # gh — GitHub CLI + TUI extensions
   # ---------------------------------------------------------------------------
