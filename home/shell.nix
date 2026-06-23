@@ -128,6 +128,7 @@
       vi = "nvim";
       cansniff = "cmd.exe /c cansniff.exe";
       cmd = "cmd.exe /c";
+      C = "cmd.exe /c"; # prefix wrapper: `C ipconfig /all` -> cmd.exe /c ipconfig /all
       posh = "powershell.exe -NoProfile -Command";
       clip = "pbcopy"; # pipe stdout to clipboard; overridden to wl-copy on Linux
       reload = "exec $SHELL";
