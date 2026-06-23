@@ -44,6 +44,22 @@ See `README.md` for full setup and migration details.
 - **Commit `flake.lock`** when it changes — it pins exact package versions.
 - For tmux-related changes reload tmux's config
 
+## Deploying to remote Tailscale nodes
+
+Use `nix-deploy` (`.local/bin/nix-deploy`, installed into `~/.local/bin`):
+
+```sh
+nix-deploy                   # deploy to all configured nodes (pi, alien)
+nix-deploy alien             # deploy to a single node
+nix-deploy --dry-run alien   # build without activating — catches eval/build errors first
+nix-deploy --force alien     # hard-reset remote repo to origin/master (drops local commits)
+```
+
+The script SSHes into each node, pulls latest from origin, then runs
+`home-manager switch`. If the remote has local commits not on origin it aborts
+and lists them so they can be integrated first. Add new nodes by extending the
+`FLAKE_TARGET` map at the top of the script.
+
 ## Conventions
 
 - tmux prefix is `C-a`; tmux and shell both use **vi** bindings.
