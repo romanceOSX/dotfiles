@@ -188,6 +188,37 @@
   };
 
   # ---------------------------------------------------------------------------
+  # ssh — Home Manager manages ~/.ssh/config so it always has 600 permissions.
+  # Prevents 'Bad owner or permissions on ~/.ssh/config' (manually-created
+  # files can end up 664; the HM symlink enforces read-only store permissions).
+  # MagicDNS hostnames do not resolve reliably on macOS — use Tailscale IPs.
+  # ---------------------------------------------------------------------------
+  programs.ssh = {
+    enable = true;
+    enableDefaultConfig = false;
+    # Colima injects its own SSH host into a side-file; Include it on Darwin.
+    extraConfig = lib.mkIf pkgs.stdenv.isDarwin ''
+      Include ~/.config/colima/ssh_config
+    '';
+    settings = {
+      "*" = { }; # required placeholder when enableDefaultConfig = false + extraConfig
+      "github.com" = {
+        Hostname = "github.com";
+        IdentityFile = "~/.ssh/id_ed25519";
+        AddKeysToAgent = "yes";
+      };
+      "pi" = {
+        Hostname = "100.88.214.84";
+        User = "romance";
+      };
+      "alien" = {
+        Hostname = "100.104.20.52";
+        User = "romance";
+      };
+    };
+  };
+
+  # ---------------------------------------------------------------------------
   # gh — GitHub CLI + TUI extensions
   # ---------------------------------------------------------------------------
   # `programs.gh.enable` installs the `gh` package (so it's dropped from
