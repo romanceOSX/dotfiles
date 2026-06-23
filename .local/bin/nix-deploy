@@ -28,7 +28,7 @@ NODES=()
 for arg in "$@"; do
     case "$arg" in
         --force) FORCE=1 ;;
-        --help|-h) sed -n 's/^# \?//p' "$0" | head -20; exit 0 ;;
+        --help|-h) awk 'NR>1 && /^[^#]/{exit} NR>1{sub(/^# ?/,""); print}' "$0"; exit 0 ;;
         -*) printf 'nix-deploy: unknown flag "%s"\n' "$arg" >&2; exit 1 ;;
         *)  NODES+=("$arg") ;;
     esac

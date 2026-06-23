@@ -85,6 +85,10 @@
       source = ../.local/bin/ssh-deploy;
       executable = true;
     };
+    ".local/bin/nix-deploy" = {
+      source = ../.local/bin/nix-deploy;
+      executable = true;
+    };
   }
   # WSL-only helpers — keep these off macOS so they don't bloat that config.
   // lib.optionalAttrs isWSL {
