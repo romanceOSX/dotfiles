@@ -326,6 +326,15 @@
               ssh alien -- "$@"
           fi
       }
+
+      # --- tmux-clean: wipe all sessions without tmux-resurrect re-restoring them.
+      # Removes the `last` symlink (resurrect's restore target) before kill-server
+      # so a fresh server starts blank. Actual save files are kept — you can still
+      # manually restore with tmux-resurrect-restore afterward.
+      function tmux-clean() {
+          rm -f "''${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect/last"
+          tmux kill-server
+      }
     '';
   };
 
