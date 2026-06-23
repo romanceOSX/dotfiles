@@ -52,7 +52,7 @@
       #   isWSL          — true under WSL (Syncthing then runs on the Windows host,
       #                    not via nix). Defaults to false (bare Linux / macOS).
       mkHome =
-        { system, username, homeDirectory, isWSL ? false, includeAoe ? true }:
+        { system, username, homeDirectory, isWSL ? false, isAlien ? false, includeAoe ? true }:
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
             inherit system;
@@ -68,6 +68,11 @@
             # is impractical (e.g. Raspberry Pi with no binary cache).
             aoe = if includeAoe then agent-of-empires.packages.${system}.default else null;
             inherit isWSL;
+            # Gates the Alienware-only utilities (rom-alien-rgb-*). True only for
+            # the "alien" host below; every other host gets `false` via the
+            # default, so the OpenRGB wrappers never land on machines without
+            # that hardware. See home/alien.nix.
+            inherit isAlien;
           };
           modules = [
             ./home
@@ -115,6 +120,7 @@
           system = "x86_64-linux";
           username = "romance";
           homeDirectory = "/home/romance";
+          isAlien = true; # unlocks rom-alien-rgb-* (OpenRGB wrappers, see home/alien.nix)
         };
 
         # Raspberry Pi (64-bit Raspberry Pi OS / Debian Bookworm, aarch64).

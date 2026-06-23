@@ -7,6 +7,7 @@
     ./tmux.nix
     ./scripts.nix
     ./taskwarrior.nix
+    ./alien.nix
   ];
 
   # Let Home Manager manage itself and the XDG base dirs (exports XDG_CONFIG_HOME
