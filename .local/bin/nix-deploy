@@ -54,7 +54,7 @@ for host in "${NODES[@]}"; do
         continue
     fi
     target="${FLAKE_TARGET[$host]}"
-    label="${DRY_RUN:+dry-run → }#${target}"
+    [[ $DRY_RUN == 1 ]] && label="dry-run → #${target}" || label="#${target}"
     printf '\n\033[1;34m==> %s  (flake: %s)\033[0m\n' "$host" "$label"
 
     if ssh "$host" bash -s -- "$target" "$FORCE" "$DRY_RUN" <<'REMOTE'
