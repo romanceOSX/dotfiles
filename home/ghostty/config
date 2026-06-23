@@ -9,6 +9,14 @@ font-size = 14
 # No background-blur: it noticeably increases GPU/battery draw.
 background-opacity = 0.90
 
+# --- SSH terminfo handshake (Ghostty 1.2.0+) ---
+# ssh-terminfo: auto-install the xterm-ghostty entry on remote hosts that lack
+# it (the long tail of unmanaged/embedded boxes), so ^L/clear doesn't corrupt
+# the display. ssh-env: graceful TERM fallback where it can't install (read-only
+# rootfs, busybox, no tic). HM-managed hosts already ship the entry in
+# ~/.terminfo (see home/programs.nix), so this just covers everything else.
+shell-integration-features = ssh-env,ssh-terminfo
+
 # --- Base colors ---
 # Darker base so pastels pop more
 background = 1a1a26

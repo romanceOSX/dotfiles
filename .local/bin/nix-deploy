@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# nix-deploy — deploy home-manager config to Tailscale nodes.
+#
+# Usage:
+#   nix-deploy [--force] [node ...]
+#
+# Divergence handling (remote has local commits not on origin/master):
+#   default  Abort for that node, print the offending commits, move on.
+#            Integrate them into the main repo first, then redeploy.
+#   --force  Hard-reset the remote repo to origin/master (local commits lost).
+#
+# If no nodes are named all configured nodes are targeted.
+# Add new nodes in the FLAKE_TARGET map below.
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# node → flake target  (extend as new tailscale nodes are added)
+# ---------------------------------------------------------------------------
+declare -A FLAKE_TARGET=(
+    [pi]=pi
+    [alien]=alien
+)
+
+FORCE=0
+NODES=()
+
+for arg in "$@"; do
+    case "$arg" in
+        --force) FORCE=1 ;;
+        --help|-h) sed -n 's/^# \?//p' "$0" | head -20; exit 0 ;;
+        -*) printf 'nix-deploy: unknown flag "%s"\n' "$arg" >&2; exit 1 ;;
+        *)  NODES+=("$arg") ;;
+    esac
+done
+
+[[ ${#NODES[@]} -eq 0 ]] && NODES=("${!FLAKE_TARGET[@]}")
+
+ok=()
+fail=()
+
+for host in "${NODES[@]}"; do
+    if [[ -z "${FLAKE_TARGET[$host]+x}" ]]; then
+        printf 'nix-deploy: unknown node "%s" — add it to FLAKE_TARGET\n' "$host" >&2
+        fail+=("$host")
+        continue
+    fi
+    target="${FLAKE_TARGET[$host]}"
+    printf '\n\033[1;34m==> %s  (flake: #%s)\033[0m\n' "$host" "$target"
+
+    if ssh "$host" bash -s -- "$target" "$FORCE" <<'REMOTE'
+set -euo pipefail
+target="$1"
+force="$2"
+
+# Source nix so that `nix` and `home-manager` are on PATH in non-interactive
+# SSH sessions (login shells don't run .profile/.zshrc over plain ssh).
+nix_init=/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+[[ -f "$nix_init" ]] && . "$nix_init"
+
+flake="$HOME/git/dotfiles"
+[[ -d "$flake/.git" ]] || { printf 'ERROR: %s is not a git repo\n' "$flake" >&2; exit 1; }
+cd "$flake"
+
+git fetch --quiet origin
+
+# Check for local commits not yet on origin.
+local_only=$(git log --oneline "origin/master..HEAD" 2>/dev/null || true)
+if [[ -n "$local_only" ]]; then
+    if [[ "$force" == "1" ]]; then
+        printf '\033[1;33mWARNING\033[0m: diverged — hard-resetting to origin/master.\n'
+        printf 'Dropped local commits:\n%s\n' "$local_only"
+        git reset --hard origin/master
+    else
+        printf '\033[1;31mERROR\033[0m: diverged from origin — integrate these first:\n'
+        printf '%s\n' "$local_only"
+        printf 'Re-run with --force to hard-reset (local commits will be lost).\n'
+        exit 2
+    fi
+else
+    git pull --ff-only --quiet
+fi
+
+home-manager switch --flake ".#${target}" -b backup 2>&1
+REMOTE
+    then
+        ok+=("$host")
+    else
+        fail+=("$host")
+        printf '\033[1;31m  ✗ %s failed\033[0m\n' "$host"
+    fi
+done
+
+printf '\n'
+[[ ${#ok[@]}   -gt 0 ]] && printf '\033[1;32m✓ deployed:\033[0m  %s\n' "${ok[*]}"
+[[ ${#fail[@]} -gt 0 ]] && printf '\033[1;31m✗ failed:\033[0m    %s\n' "${fail[*]}"
+[[ ${#fail[@]} -gt 0 ]] && exit 1
+exit 0
