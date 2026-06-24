@@ -121,6 +121,8 @@
       toks = "tokscale";
       lg = "lazygit";
       g = "git";
+      c = "claude";
+      ca = "claude agents";
       pip = "pip3";
       python = "python3";
       "clang++" = "clang++ -std=c++20";
