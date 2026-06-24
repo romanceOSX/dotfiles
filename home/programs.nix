@@ -125,6 +125,7 @@
       color_theme = "pastel-rainbow";
       theme_background = false;
       truecolor = true;
+      vim_keys = true;
       update_ms = 2100;
       proc_tree = true;
       proc_per_core = true;
