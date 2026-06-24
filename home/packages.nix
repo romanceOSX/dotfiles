@@ -60,6 +60,7 @@
             hyfetch
             colima
             cmake
+            gnumake
             macchina
             openai-whisper
 
