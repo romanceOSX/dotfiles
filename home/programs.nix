@@ -246,6 +246,7 @@
   # `gh extension install`-ing them imperatively into ~/.local/share/gh.
   programs.gh = {
     enable = true;
+    enableGitCredentialHelper = false;
     settings = {
       git_protocol = "https";
       aliases = {
