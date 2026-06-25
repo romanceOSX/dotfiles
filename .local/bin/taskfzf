@@ -113,16 +113,23 @@ if [ "$_TASKFZF_TASK_ACT" = "copy" ]; then
 		ids=$(awk '{printf $1" "} END {printf "\n"}' $@)
 	fi
 	out=""
+	count=0
 	for id in $ids; do
 		case "$id" in
 			''|*[!0-9a-f]*) continue ;;
 		esac
 		formatted=$(task rc.verbose=nothing "$id" export 2>/dev/null | \
 			jq -r '.[0] | "project: \"" + (.project // "") + "\"; " + (.description // "") + ((.annotations // []) | map("; annotation: " + .description) | join(""))' 2>/dev/null)
-		[ -n "$formatted" ] && out="${out}${formatted}
+		if [ -n "$formatted" ]; then
+			out="${out}${formatted}
 "
+			count=$((count + 1))
+		fi
 	done
 	printf '%s' "$out" | copy_to_clipboard
+	# Echo the number of tasks copied so the fzf `transform` binding can flash a
+	# confirmation header (see the ctrl-y bind in the main loop).
+	printf '%s' "$count"
 	exit 0
 fi
 
@@ -322,7 +329,9 @@ while [ $? != 130 ]; do
 	# - We use {+f} instead of {+} because it's easier to parse a file
 	# containing the lines chosen instead of one line containing all lines
 	# chosen given as a CLI argument
-	reload_list="reload(env _TASKFZF_RELOAD=true $0)"
+	# `change-header()` clears any lingering yank-confirmation header (set by the
+	# ctrl-y bind) so it doesn't go stale after a subsequent action.
+	reload_list="change-header()+reload(env _TASKFZF_RELOAD=true $0)"
 	$tw $(desc_noannot_override "$tw_args") $tw_args | fzf --ansi \
 		--multi \
 		--bind="ctrl-v:toggle+down" \
@@ -339,7 +348,7 @@ while [ $? != 130 ]; do
 		--bind="P:execute(env _TASKFZF_TASK_ACT=stop $0 {+f} < /dev/tty > /dev/tty 2>&1 )+$reload_list" \
 		--bind="R:execute(env _TASKFZF_LIST_CHANGE=report $0)+$reload_list" \
 		--bind="C:execute(env _TASKFZF_LIST_CHANGE=context $0)+$reload_list" \
-		--bind="ctrl-y:execute-silent(env _TASKFZF_TASK_ACT=copy $0 {+f})" \
+		--bind="ctrl-y:transform:cnt=\$(env _TASKFZF_TASK_ACT=copy $0 {+f}); printf 'change-header(📋 yanked %s task to clipboard)' \"\$cnt\"" \
 		--bind="ctrl-r:reload(env _TASKFZF_INTERNAL=reload $0)" \
 		--bind="?:execute(env _TASKFZF_SHOW=keys $0 | less)" \
 		--bind="enter:execute(env _TASKFZF_TASK_ACT=information $0 {+f} | less)"
