@@ -63,6 +63,7 @@ in
       Environment = [
         "PATH=${pkgs.docker-client}/bin:${pkgs.colima}/bin:/usr/local/bin:/usr/bin:/bin"
       ];
+      SupplementaryGroups = "kvm";
     };
     Install = {
       WantedBy = [ "default.target" ];
