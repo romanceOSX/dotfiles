@@ -123,7 +123,6 @@
       g = "git";
       c = "claude";
       ca = "claude agents";
-      gem = "npx @google/gemini-cli";
       cop = "npx @githubnext/github-copilot-cli";
       pip = "pip3";
       python = "python3";
