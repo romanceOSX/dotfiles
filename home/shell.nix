@@ -134,6 +134,8 @@
       posh = "powershell.exe -NoProfile -Command";
       clip = "pbcopy"; # pipe stdout to clipboard; overridden to wl-copy on Linux
       reload = "exec $SHELL";
+    } // lib.optionalAttrs pkgs.stdenv.isDarwin {
+      stream-clean = "stream-alien-clean --all";
     } // lib.optionalAttrs pkgs.stdenv.isLinux {
       open = "xdg-open"; # macOS has a native `open`
       clip = "wl-copy";
@@ -358,13 +360,11 @@
   };
 
   # ---------------------------------------------------------------------------
-  # zoxide — smart `cd`. `--cmd cd` shadows the builtin so `cd` learns/jumps;
-  # `cdi` gives the interactive picker. Plain `cd <path>` still works as normal.
+  # zoxide — smart `cd`. `z <query>` jumps to frecent dirs; `zi` is interactive.
   # ---------------------------------------------------------------------------
   programs.zoxide = {
     enable = true;
     enableZshIntegration = true;
-    options = [ "--cmd cd" ];
   };
 
   # ---------------------------------------------------------------------------

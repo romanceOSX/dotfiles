@@ -105,6 +105,17 @@
       executable = true;
     };
   }
+  # macOS-only helpers — streaming scripts talk to alien via Tailscale/Moonlight.
+  // lib.optionalAttrs pkgs.stdenv.isDarwin {
+    ".local/bin/stream-alien" = {
+      source = ../.local/bin/stream-alien;
+      executable = true;
+    };
+    ".local/bin/stream-alien-clean" = {
+      source = ../.local/bin/stream-alien-clean;
+      executable = true;
+    };
+  }
   # Linux-only helpers — macOS has its own sshd (Remote Login), so skip it there.
   // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
     ".local/bin/install-sshd-daemon" = {

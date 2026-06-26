@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# Clean up leftover streaming processes on the alien Sunshine host.
+#
+# Why this exists: the "Steam Big Picture" Sunshine app is launched *detached*,
+# so closing the Moonlight stream does NOT stop Steam or any running game — they
+# keep using alien's GPU/CPU until something kills them. This script does that.
+#
+# Usage:
+#   stream-alien-clean              # quit Steam + games, leave Sunshine/desktop up (default)
+#   stream-alien-clean --status     # just show what streaming stuff is running, change nothing
+#   stream-alien-clean --sunshine   # also restart the Sunshine service (clears a stuck session)
+#   stream-alien-clean --all        # tear everything down: apps + stop Sunshine + its Xorg
+#
+# By default the host stays stream-ready (Sunshine + Xorg :1 + bspwm keep running);
+# only the apps that linger after a disconnect are cleared.
+set -euo pipefail
+
+TS_HOST="alien"                               # Tailscale machine name
+TAILSCALE="${TAILSCALE_BIN:-tailscale}"
+SERVICE="sunshine-headless.service"           # systemd unit that runs Sunshine + Xorg :1
+DISPLAY_NUM=":1"
+RUNTIME_DIR="/run/user/1000"
+STEAM="/usr/games/steam"                       # full path: romance's PATH lacks /usr/games
+
+MODE="apps"
+case "${1:-}" in
+    ""|--apps)         MODE="apps" ;;
+    --status|-s)       MODE="status" ;;
+    --sunshine)        MODE="sunshine" ;;
+    --all|--full)      MODE="all" ;;
+    -h|--help)
+        awk 'NR>1 && /^#/ {sub(/^# ?/,""); print; next} NR>1 {exit}' "$0"
+        exit 0 ;;
+    *)
+        echo "stream-alien-clean: unknown option '$1' (try --help)" >&2
+        exit 2 ;;
+esac
+
+# Resolve host via the tailscale CLI (macOS resolver isn't wired to MagicDNS).
+HOST="$("$TAILSCALE" ip -4 "$TS_HOST" 2>/dev/null | head -1 || true)"
+if [ -z "$HOST" ]; then
+    echo "stream-alien-clean: couldn't resolve Tailscale host '$TS_HOST'." >&2
+    echo "  Is Tailscale up? Try: $TAILSCALE status" >&2
+    exit 1
+fi
+
+echo "stream-alien-clean: $TS_HOST -> $HOST  | mode=$MODE" >&2
+
+# The remote worker. Patterns below match the Steam install tree, the Steam
+# runtime sandbox (pressure-vessel), the game launch wrapper (reaper), and
+# Proton/Wine — i.e. Steam itself plus anything it spawned to run a game.
+ssh -o ConnectTimeout=15 "$HOST" \
+    "MODE='$MODE' DISPLAY='$DISPLAY_NUM' XDG_RUNTIME_DIR='$RUNTIME_DIR' STEAM='$STEAM' SERVICE='$SERVICE' bash -s" <<'REMOTE'
+set -u
+PATTERNS=(
+    'debian-installation'   # Steam client + steamapps libraries under ~/.steam/debian-installation
+    'pressure-vessel'       # Steam Linux Runtime sandbox
+    'SteamLaunch'           # the Steam reaper wrapper around a launched game
+    'proton'
+    'wine'
+    'steamwebhelper'
+)
+
+show_status() {
+    echo "--- streaming processes on host ---"
+    local found=0
+    for p in "${PATTERNS[@]}"; do
+        while IFS= read -r line; do
+            [ -n "$line" ] && { echo "  $line"; found=1; }
+        done < <(pgrep -af "$p" 2>/dev/null | grep -v ' bash -s$' | grep -v pgrep)
+    done
+    [ "$found" -eq 0 ] && echo "  (none — host is idle)"
+    echo "--- sunshine service ---"
+    systemctl is-active "$SERVICE" 2>/dev/null | sed 's/^/  /'
+}
+
+kill_apps() {
+    # 1) Ask Steam to quit cleanly first (also closes any running game).
+    if pgrep -f "$STEAM" >/dev/null 2>&1 || pgrep -f debian-installation >/dev/null 2>&1; then
+        echo "Asking Steam to exit cleanly..."
+        DISPLAY="$DISPLAY" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
+            setsid "$STEAM" steam://exit >/dev/null 2>&1 || true
+        # Give it up to ~10s to shut down gracefully.
+        for _ in $(seq 1 10); do
+            pgrep -f 'debian-installation/steam.sh' >/dev/null 2>&1 || break
+            sleep 1
+        done
+    fi
+
+    # 2) Force-terminate anything still standing (TERM, then KILL).
+    local sig
+    for sig in TERM KILL; do
+        local hit=0
+        for p in "${PATTERNS[@]}"; do
+            pkill -"$sig" -f "$p" 2>/dev/null && hit=1
+        done
+        [ "$sig" = TERM ] && [ "$hit" -eq 1 ] && sleep 2
+    done
+    echo "Apps cleaned."
+}
+
+case "$MODE" in
+    status)
+        show_status
+        ;;
+    apps)
+        kill_apps
+        echo
+        show_status
+        ;;
+    sunshine)
+        kill_apps
+        echo "Restarting $SERVICE (clears any stuck stream session)..."
+        sudo systemctl restart "$SERVICE"
+        sleep 2
+        show_status
+        ;;
+    all)
+        kill_apps
+        echo "Stopping $SERVICE (this also tears down Xorg :1 + desktop)..."
+        sudo systemctl stop "$SERVICE"
+        sleep 1
+        show_status
+        ;;
+esac
+REMOTE

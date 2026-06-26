@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Launch a Moonlight stream from the alien node (Sunshine host) over Tailscale.
+#
+# Usage:
+#   stream-alien                       # Desktop @ 1080p60, 40 Mbps
+#   stream-alien "Steam Big Picture"   # pick a different app
+#   stream-alien Desktop --1440 --fps 120 --bitrate 60000   # extra moonlight flags
+#
+# Any flags after the app name are passed straight through to `moonlight stream`.
+set -euo pipefail
+
+TS_HOST="alien"                  # Tailscale machine name (MagicDNS: alien.<tailnet>.ts.net)
+MOONLIGHT="${MOONLIGHT_BIN:-$HOME/.nix-profile/bin/moonlight}"
+TAILSCALE="${TAILSCALE_BIN:-tailscale}"
+
+# Resolve the Tailscale host -> current IP. macOS's system resolver isn't wired
+# to MagicDNS, so we ask the tailscale CLI (the source of truth) instead of
+# hardcoding an IP or relying on getaddrinfo.
+HOST="$("$TAILSCALE" ip -4 "$TS_HOST" 2>/dev/null | head -1 || true)"
+if [ -z "$HOST" ]; then
+    echo "stream-alien: couldn't resolve Tailscale host '$TS_HOST'." >&2
+    echo "  Is Tailscale up? Try: $TAILSCALE status" >&2
+    exit 1
+fi
+
+APP="${1:-Desktop}"; [ "$#" -gt 0 ] && shift || true
+
+# Defaults, applied only if the user didn't override them.
+defaults=()
+case " $* " in *" --720 "*|*" --1080 "*|*" --1440 "*|*" --4K "*|*" --resolution "*) ;; *) defaults+=(--1080);; esac
+case " $* " in *" --fps "*)     ;; *) defaults+=(--fps 60);;        esac
+case " $* " in *" --bitrate "*) ;; *) defaults+=(--bitrate 10000);; esac
+# alien's Intel VAAPI can only encode H.264 (hevc_vaapi/av1_vaapi have no usable
+# entrypoint). Apple-Silicon Moonlight otherwise requests HEVC by default and the
+# host can't deliver it -> connected-but-black stream. Pin H.264 unless overridden.
+case " $* " in *" --video-codec "*) ;; *) defaults+=(--video-codec H.264);; esac
+# We reach alien over a Tailscale tunnel whose MTU is 1280. Moonlight's default
+# ~1392-byte video packets exceed that, so every keyframe loses an IP fragment and
+# no frame ever fully decodes -> Moonlight aborts with "lack of a successful video
+# frame" (error -101). Cap the packet size below the tunnel MTU (room for headers).
+case " $* " in *" --packet-size "*) ;; *) defaults+=(--packet-size 1024);; esac
+
+echo "stream-alien: $TS_HOST -> $HOST  | app=\"$APP\"  ${defaults[*]} $*" >&2
+exec "$MOONLIGHT" stream "$HOST" "$APP" "${defaults[@]}" "$@"
