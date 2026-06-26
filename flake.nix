@@ -57,6 +57,12 @@
           pkgs = import nixpkgs {
             inherit system;
             config.allowUnfree = true;
+            # libolm is EOL/deprecated upstream (superseded by vodozemac) and so
+            # marked insecure in nixpkgs, but matrix-nio — pulled in by the
+            # weechat-matrix client in home/messaging.nix — still depends on it.
+            # The messaging stack is local-only and unfederated, so the exposure
+            # is negligible; permit it consciously.
+            config.permittedInsecurePackages = [ "olm-3.2.16" ];
           };
           extraSpecialArgs = {
             pkgs-neovim = import nixpkgs-neovim {

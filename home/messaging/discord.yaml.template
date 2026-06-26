@@ -1,0 +1,59 @@
+# mautrix-discord config — rendered by `messaging-stack setup`.
+# Placeholders (__LIKE_THIS__) are substituted with runtime values. On first start
+# the bridge writes registration.yaml next to this file; the setup step then
+# registers it with Conduit via the admin room.
+
+homeserver:
+    address: http://conduit:6167
+    domain: __SERVER_NAME__
+    software: standard
+    async_media: false
+
+appservice:
+    address: http://mautrix-discord:29334
+    hostname: 0.0.0.0
+    port: 29334
+
+    database:
+        type: sqlite3-fk-wal
+        uri: file:/data/mautrix-discord.db?_txlock=immediate
+
+    id: discord
+    bot:
+        username: discordbot
+        displayname: Discord bridge bot
+        avatar: mxc://maunium.net/nIdEykemnwdisvHbpxflpDlC
+
+    ephemeral_events: true
+    async_transactions: false
+
+    as_token: "__DC_AS_TOKEN__"
+    hs_token: "__DC_HS_TOKEN__"
+
+bridge:
+    username_template: "dc_{{.}}"
+    displayname_template: "{{.}} (DC)"
+    private_chat_portal_meta: true
+    delivery_receipts: false
+    message_status_events: false
+    message_error_notices: true
+    portal_message_buffer: 128
+    restricted_rooms: true
+    autojoin_thread_on_create: true
+    embed_fields_as_tables: true
+    mute_channels_on_create: false
+    sync_direct_chat_list: true
+    encryption:
+        allow: false
+        default: false
+        require: false
+    permissions:
+        "*": relay
+        "__SERVER_NAME__": user
+        "__USER_ID__": admin
+
+logging:
+    min_level: info
+    writers:
+        - type: stdout
+          format: pretty-colored

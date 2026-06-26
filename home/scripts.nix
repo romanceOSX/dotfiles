@@ -93,6 +93,10 @@
       source = ../.local/bin/netbench;
       executable = true;
     };
+    ".local/bin/messaging-stack" = {
+      source = ../.local/bin/messaging-stack;
+      executable = true;
+    };
   }
   # WSL-only helpers — keep these off macOS so they don't bloat that config.
   // lib.optionalAttrs isWSL {

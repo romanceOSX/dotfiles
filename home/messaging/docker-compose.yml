@@ -1,0 +1,40 @@
+# Local Matrix stack for the WeeChat messaging bundle.
+#
+# Managed by `messaging-stack` (not by hand). All three services bind-mount
+# subdirectories of $MESSAGING_DATA (default ~/.local/share/messaging), which the
+# setup step populates with rendered configs and runtime tokens. Ports are bound
+# to localhost only — nothing here is meant to face the network.
+#
+# Conduit is the homeserver/router. The two mautrix bridges connect to it as
+# appservices and reach out to WhatsApp Web / the Discord API respectively.
+
+services:
+  conduit:
+    image: matrixconduit/matrix-conduit:latest
+    restart: unless-stopped
+    environment:
+      CONDUIT_CONFIG: /srv/conduit/conduit.toml
+    volumes:
+      - ${MESSAGING_DATA:-~/.local/share/messaging}/conduit:/srv/conduit
+    ports:
+      - "127.0.0.1:6167:6167"
+
+  mautrix-whatsapp:
+    image: dock.mau.fi/mautrix/whatsapp:latest
+    restart: unless-stopped
+    depends_on:
+      - conduit
+    volumes:
+      - ${MESSAGING_DATA:-~/.local/share/messaging}/whatsapp:/data
+    ports:
+      - "127.0.0.1:29318:29318"
+
+  mautrix-discord:
+    image: dock.mau.fi/mautrix/discord:latest
+    restart: unless-stopped
+    depends_on:
+      - conduit
+    volumes:
+      - ${MESSAGING_DATA:-~/.local/share/messaging}/discord:/data
+    ports:
+      - "127.0.0.1:29334:29334"
