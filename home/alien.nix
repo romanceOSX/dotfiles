@@ -45,4 +45,27 @@ let
 in
 {
   home.packages = lib.optionals isAlien [ rgbOff rgbOn rgbStatus ];
+
+  # Colima auto-start — Linux/alien only.
+  # Runs the colima VM (QEMU+KVM) as a user service so docker is always
+  # available without a manual `colima start`.  Requires the user to be in
+  # the `kvm` group (done via `usermod -aG kvm romance`).
+  systemd.user.services.colima = lib.mkIf pkgs.stdenv.isLinux {
+    Unit = {
+      Description = "Colima container runtime";
+      After = [ "network.target" ];
+    };
+    Service = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${pkgs.colima}/bin/colima start";
+      ExecStop  = "${pkgs.colima}/bin/colima stop";
+      Environment = [
+        "PATH=${pkgs.docker-client}/bin:${pkgs.colima}/bin:/usr/local/bin:/usr/bin:/bin"
+      ];
+    };
+    Install = {
+      WantedBy = [ "default.target" ];
+    };
+  };
 }
