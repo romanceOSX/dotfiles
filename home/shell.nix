@@ -123,6 +123,8 @@
       g = "git";
       c = "claude";
       ca = "claude agents";
+      gemini = "npx @google/gemini-cli";
+      copilot = "npx @githubnext/github-copilot-cli";
       pip = "pip3";
       python = "python3";
       "clang++" = "clang++ -std=c++20";
