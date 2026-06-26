@@ -59,6 +59,7 @@
             fastfetch
             hyfetch
             colima
+            docker-client # docker CLI — required by colima
             cmake
             gnumake
             macchina
