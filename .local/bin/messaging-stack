@@ -13,13 +13,16 @@
 # gitignored data dir at ~/.local/share/messaging.
 #
 # Usage:
-#   messaging-stack setup [--host=local|alien]    first-time bootstrap
+#   messaging-stack setup [--host=alien|local]    first-time bootstrap
 #   messaging-stack start|stop|restart [--host=…] container lifecycle
 #   messaging-stack status [--host=…]             show containers + connect hint
 #   messaging-stack logs [--host=…]               tail all container logs
 #   messaging-stack tunnel                        SSH-forward alien's port to here
 #   messaging-stack login-whatsapp                print WhatsApp login steps
 #   messaging-stack login-discord                 print Discord login steps
+#
+# Default host is `alien` (always-on, no macOS battery drain). Pass --host=local
+# to run the docker stack on this machine instead (requires Colima running).
 set -euo pipefail
 
 # --- config ----------------------------------------------------------------
@@ -220,7 +223,7 @@ EOF
 # ---------------------------------------------------------------------------
 # arg parsing
 # ---------------------------------------------------------------------------
-HOST=local
+HOST=alien
 SUBCMD=""
 args=()
 for arg in "$@"; do

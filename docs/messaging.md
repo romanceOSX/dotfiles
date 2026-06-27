@@ -33,8 +33,8 @@ Requires a running docker daemon. On macOS: `colima start`. On `alien` Colima is
 already a systemd user service.
 
 ```sh
-messaging-stack setup            # local (macOS via Colima)
-messaging-stack setup --host=alien   # on the always-on node instead
+messaging-stack setup                # alien (default — no macOS battery drain)
+messaging-stack setup --host=local   # local macOS via Colima instead
 ```
 
 This generates appservice tokens, renders the Conduit + bridge configs, starts
