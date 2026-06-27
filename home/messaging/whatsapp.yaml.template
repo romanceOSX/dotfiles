@@ -25,6 +25,10 @@ appservice:
     hs_token: "This value is generated when generating the registration"
     username_template: whatsapp_{{.}}
 
+database:
+    type: sqlite3-fk-wal
+    uri: file:__DATA_DIR__/whatsapp/mautrix-whatsapp.db?_txlock=immediate
+
 matrix:
     message_status_events: false
     delivery_receipts: false
@@ -35,11 +39,10 @@ matrix:
 bridge:
     command_prefix: '!wa'
     personal_filtering_spaces: true
-
-permissions:
-    "*": relay
-    "__SERVER_NAME__": user
-    "__USER_ID__": admin
+    permissions:
+        "*": relay
+        "__SERVER_NAME__": user
+        "__USER_ID__": admin
 
 logging:
     min_level: info

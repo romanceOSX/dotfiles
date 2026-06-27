@@ -87,11 +87,13 @@ cmd_setup() {
 
   # Render bridge configs (tokens are placeholders; --generate-registration fills them in).
   render "${CONFIG_DIR}/whatsapp.yaml.template" "${DATA_DIR}/whatsapp/config.yaml" \
-    "__SERVER_NAME__" "${SERVER_NAME}" "__USER_ID__" "${USER_ID}"
+    "__SERVER_NAME__" "${SERVER_NAME}" "__USER_ID__" "${USER_ID}" \
+    "__DATA_DIR__"    "${DATA_DIR}"
   ok "rendered whatsapp/config.yaml"
 
   render "${CONFIG_DIR}/discord.yaml.template" "${DATA_DIR}/discord/config.yaml" \
-    "__SERVER_NAME__" "${SERVER_NAME}" "__USER_ID__" "${USER_ID}"
+    "__SERVER_NAME__" "${SERVER_NAME}" "__USER_ID__" "${USER_ID}" \
+    "__DATA_DIR__"    "${DATA_DIR}"
   ok "rendered discord/config.yaml"
 
   # Generate appservice registration files from the bridge binaries. This also
@@ -111,20 +113,106 @@ cmd_setup() {
     -r "${DATA_DIR}/discord/registration.yaml" 2>&1 | grep -v '^$' || true
   ok "discord registration.yaml generated"
 
-  # Copy registrations into Conduit's data dir so it can load them.
-  cp "${DATA_DIR}/whatsapp/registration.yaml" "${DATA_DIR}/conduit/whatsapp-registration.yaml"
-  cp "${DATA_DIR}/discord/registration.yaml"  "${DATA_DIR}/conduit/discord-registration.yaml"
-  ok "registrations copied to Conduit data dir"
-
-  # Start Conduit first, then bridges.
-  say "Starting services..."
+  # Start Conduit first, wait for it to be ready.
+  say "Starting Conduit..."
   ctl start matrix-conduit
-  sleep 3
+  local deadline=$((SECONDS + 20))
+  until curl -sf "http://localhost:${CONDUIT_PORT}/_matrix/client/versions" >/dev/null 2>&1; do
+    [ $SECONDS -ge $deadline ] && die "Conduit did not become ready within 20s"
+    sleep 1
+  done
+  ok "Conduit is ready"
+
+  # Register the Matrix user (ignore 'already exists' errors).
+  say "Registering Matrix user @${MATRIX_USER}:${SERVER_NAME}..."
+  local reg_pass="conduit-local-$(date +%Y)"
+  local reg_resp
+  reg_resp=$(curl -sf -X POST \
+    "http://localhost:${CONDUIT_PORT}/_matrix/client/v3/register" \
+    -H "Content-Type: application/json" \
+    -d "{\"username\":\"${MATRIX_USER}\",\"password\":\"${reg_pass}\",\"auth\":{\"type\":\"m.login.dummy\"}}" 2>&1 || true)
+  if echo "$reg_resp" | grep -q '"access_token"'; then
+    ok "user registered (password: ${reg_pass})"
+  elif echo "$reg_resp" | grep -q 'M_USER_IN_USE'; then
+    ok "user already exists — proceeding"
+  else
+    warn "register response: $reg_resp"
+  fi
+
+  # Get an access token (login).
+  local token
+  token=$(curl -sf -X POST \
+    "http://localhost:${CONDUIT_PORT}/_matrix/client/v3/login" \
+    -H "Content-Type: application/json" \
+    -d "{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\",\"user\":\"${MATRIX_USER}\"},\"password\":\"${reg_pass}\"}" \
+    | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+  [ -n "$token" ] || die "Could not obtain access token — check credentials"
+  ok "access token obtained"
+
+  # Register bridges with Conduit via the admin room.
+  # Conduit 0.10.12 has no config-file-based appservice loading; the only
+  # supported mechanism is sending 'register-appservice <yaml>' to the admin room.
+  say "Registering bridges with Conduit admin room..."
+  _register_appservice "$token" "${DATA_DIR}/whatsapp/registration.yaml" "whatsapp"
+  _register_appservice "$token" "${DATA_DIR}/discord/registration.yaml"  "discord"
+
+  # Start bridges now that Conduit knows about them.
+  say "Starting bridges..."
   ctl start mautrix-whatsapp mautrix-discord
-  sleep 2
+  sleep 3
   ok "all services started"
 
+  # Save credentials for future use.
+  local cred_file="${DATA_DIR}/credentials"
+  printf 'MATRIX_USER=%s\nMATRIX_PASSWORD=%s\nMATRIX_TOKEN=%s\n' \
+    "$MATRIX_USER" "$reg_pass" "$token" > "$cred_file"
+  chmod 600 "$cred_file"
+  dim "credentials saved to ${cred_file}"
+
   print_next_steps
+}
+
+# Register a bridge appservice with Conduit via the admin room API.
+_register_appservice() {
+  local token="$1" reg_yaml="$2" label="$3"
+  local base="http://localhost:${CONDUIT_PORT}"
+
+  # Find the admin room: Conduit auto-joins the user to it. We look for a room
+  # named 'Conduit Admin Room' in the joined rooms list.
+  local rooms_json admin_room_id
+  rooms_json=$(curl -sf \
+    -H "Authorization: Bearer $token" \
+    "${base}/_matrix/client/v3/joined_rooms")
+  local room_ids
+  room_ids=$(echo "$rooms_json" | grep -o '"[^"]*"' | tr -d '"' | grep -v '^joined_rooms$')
+
+  for rid in $room_ids; do
+    local name
+    name=$(curl -sf \
+      -H "Authorization: Bearer $token" \
+      "${base}/_matrix/client/v3/rooms/${rid}/state/m.room.name/" 2>/dev/null \
+      | grep -o '"name":"[^"]*"' | cut -d'"' -f4 || true)
+    if echo "$name" | grep -qi "conduit admin"; then
+      admin_room_id="$rid"
+      break
+    fi
+  done
+  [ -n "$admin_room_id" ] || die "Could not find Conduit admin room"
+
+  # Read the YAML and send it as a code block in a message to the admin room.
+  local yaml_content
+  yaml_content=$(cat "$reg_yaml")
+  local body
+  printf -v body '@conduit:%s: register-appservice\n```\n%s\n```' \
+    "${SERVER_NAME}" "$yaml_content"
+  curl -sf -X PUT \
+    -H "Authorization: Bearer $token" \
+    -H "Content-Type: application/json" \
+    "${base}/_matrix/client/v3/rooms/${admin_room_id}/send/m.room.message/$(date +%s%N)" \
+    -d "{\"msgtype\":\"m.text\",\"body\":$(printf '%s' "$body" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}" \
+    >/dev/null
+  sleep 2
+  ok "${label} appservice registered"
 }
 
 print_next_steps() {
@@ -146,7 +234,7 @@ $(dim "3. Log in to WhatsApp and Discord:")
      messaging-stack login-whatsapp
      messaging-stack login-discord
 
-$(ok "Bridge registration with Conduit was handled automatically above.")
+$(ok "Bridge registrations were sent to the Conduit admin room automatically.")
 EOF
 }
 

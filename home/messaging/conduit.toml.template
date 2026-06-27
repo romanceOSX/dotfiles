@@ -21,8 +21,6 @@ allow_federation = false
 allow_check_for_updates = false
 trusted_servers = []
 
-# Appservice registrations. The setup script copies these from the bridges.
-registration_files = [
-  "__DATA_DIR__/conduit/whatsapp-registration.yaml",
-  "__DATA_DIR__/conduit/discord-registration.yaml",
-]
+# NOTE: Conduit 0.10.12 does NOT support a `registration_files` config key.
+# Appservice registrations are done at runtime via the admin room API.
+# See `messaging-stack setup` for the automated flow.
