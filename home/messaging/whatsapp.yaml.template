@@ -1,64 +1,45 @@
-# mautrix-whatsapp config — rendered by `messaging-stack setup`.
-# Placeholders (__LIKE_THIS__) are substituted with runtime values. On first start
-# the bridge writes registration.yaml next to this file; the setup step then
-# registers it with Conduit via the admin room.
+# mautrix-whatsapp config (26.x megabridge format) — rendered by `messaging-stack setup`.
+# Tokens are left as placeholders; run --generate-registration to produce real ones and
+# write registration.yaml alongside this file.
 
 homeserver:
     address: http://localhost:6167
     domain: __SERVER_NAME__
     software: standard
     async_media: false
+    websocket: false
+    ping_interval_seconds: 0
 
 appservice:
     address: http://localhost:29318
-    hostname: 0.0.0.0
+    hostname: 127.0.0.1
     port: 29318
-
-    database:
-        type: sqlite3-fk-wal
-        uri: file:/data/mautrix-whatsapp.db?_txlock=immediate
-
     id: whatsapp
     bot:
         username: whatsappbot
         displayname: WhatsApp bridge bot
         avatar: mxc://maunium.net/NeXNQarUbrlYBiPCpprYsRqr
-
     ephemeral_events: true
     async_transactions: false
+    as_token: "This value is generated when generating the registration"
+    hs_token: "This value is generated when generating the registration"
+    username_template: whatsapp_{{.}}
 
-    # Tokens shared with Conduit's appservice registration.
-    as_token: "__WA_AS_TOKEN__"
-    hs_token: "__WA_HS_TOKEN__"
+matrix:
+    message_status_events: false
+    delivery_receipts: false
+    message_error_notices: true
+    sync_direct_chat_list: true
+    federate_rooms: false
 
 bridge:
-    username_template: "wa_{{.}}"
-    displayname_template: "{{or .FullName .PushName .JID}} (WA)"
+    command_prefix: '!wa'
     personal_filtering_spaces: true
-    delivery_receipts: false
-    message_status_events: false
-    message_error_notices: true
-    portal_message_buffer: 128
-    history_sync:
-        backfill: true
-        max_initial_conversations: -1
-        message_count: 50
-    user_avatar_sync: true
-    bridge_matrix_leave: true
-    sync_with_custom_puppets: false
-    login_shared_secret_map: {}
-    private_chat_portal_meta: true
-    encryption:
-        allow: false
-        default: false
-        require: false
-    permissions:
-        "*": relay
-        "__SERVER_NAME__": user
-        # Your account is the admin/owner of the bridge.
-        "__USER_ID__": admin
-    relay:
-        enabled: false
+
+permissions:
+    "*": relay
+    "__SERVER_NAME__": user
+    "__USER_ID__": admin
 
 logging:
     min_level: info

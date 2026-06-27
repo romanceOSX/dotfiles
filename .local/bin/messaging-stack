@@ -79,71 +79,50 @@ cmd_setup() {
   # Make sure linger is on so user services survive logout.
   loginctl enable-linger "$USER" 2>/dev/null || true
 
-  # Render Conduit config (idempotent).
+  # Render Conduit config — substitute both SERVER_NAME and the runtime data dir path.
   render "${CONFIG_DIR}/conduit.toml.template" "${DATA_DIR}/conduit/conduit.toml" \
-    "__SERVER_NAME__" "${SERVER_NAME}"
+    "__SERVER_NAME__" "${SERVER_NAME}" \
+    "__DATA_DIR__"    "${DATA_DIR}"
   ok "rendered conduit.toml"
 
-  # Per-bridge appservice tokens (generated once, stable across re-runs).
-  for bridge in whatsapp discord; do
-    local tok_file="${DATA_DIR}/${bridge}/.tokens"
-    if [ ! -f "$tok_file" ]; then
-      printf 'AS=%s\nHS=%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > "$tok_file"
-    fi
-  done
-
-  local wa_as wa_hs dc_as dc_hs
-  wa_as=$(grep '^AS=' "${DATA_DIR}/whatsapp/.tokens" | cut -d= -f2)
-  wa_hs=$(grep '^HS=' "${DATA_DIR}/whatsapp/.tokens" | cut -d= -f2)
-  dc_as=$(grep '^AS=' "${DATA_DIR}/discord/.tokens" | cut -d= -f2)
-  dc_hs=$(grep '^HS=' "${DATA_DIR}/discord/.tokens" | cut -d= -f2)
-
+  # Render bridge configs (tokens are placeholders; --generate-registration fills them in).
   render "${CONFIG_DIR}/whatsapp.yaml.template" "${DATA_DIR}/whatsapp/config.yaml" \
-    "__SERVER_NAME__" "${SERVER_NAME}" "__USER_ID__" "${USER_ID}" \
-    "__WA_AS_TOKEN__" "$wa_as" "__WA_HS_TOKEN__" "$wa_hs"
+    "__SERVER_NAME__" "${SERVER_NAME}" "__USER_ID__" "${USER_ID}"
   ok "rendered whatsapp/config.yaml"
 
   render "${CONFIG_DIR}/discord.yaml.template" "${DATA_DIR}/discord/config.yaml" \
-    "__SERVER_NAME__" "${SERVER_NAME}" "__USER_ID__" "${USER_ID}" \
-    "__DC_AS_TOKEN__" "$dc_as" "__DC_HS_TOKEN__" "$dc_hs"
+    "__SERVER_NAME__" "${SERVER_NAME}" "__USER_ID__" "${USER_ID}"
   ok "rendered discord/config.yaml"
 
-  # Start Conduit first so the bridges can reach it on startup.
-  say "Starting Conduit..."
+  # Generate appservice registration files from the bridge binaries. This also
+  # writes real tokens back into config.yaml so the bridges can authenticate.
+  say "Generating bridge registrations..."
+  local wa_bin dc_bin
+  wa_bin=$(systemctl --user cat mautrix-whatsapp.service | grep ExecStart= | sed 's|ExecStart=||;s| .*||')
+  dc_bin=$(systemctl --user cat mautrix-discord.service  | grep ExecStart= | sed 's|ExecStart=||;s| .*||')
+
+  "$wa_bin" -g \
+    -c "${DATA_DIR}/whatsapp/config.yaml" \
+    -r "${DATA_DIR}/whatsapp/registration.yaml" 2>&1 | grep -v '^$' || true
+  ok "whatsapp registration.yaml generated"
+
+  "$dc_bin" -g \
+    -c "${DATA_DIR}/discord/config.yaml" \
+    -r "${DATA_DIR}/discord/registration.yaml" 2>&1 | grep -v '^$' || true
+  ok "discord registration.yaml generated"
+
+  # Copy registrations into Conduit's data dir so it can load them.
+  cp "${DATA_DIR}/whatsapp/registration.yaml" "${DATA_DIR}/conduit/whatsapp-registration.yaml"
+  cp "${DATA_DIR}/discord/registration.yaml"  "${DATA_DIR}/conduit/discord-registration.yaml"
+  ok "registrations copied to Conduit data dir"
+
+  # Start Conduit first, then bridges.
+  say "Starting services..."
   ctl start matrix-conduit
   sleep 3
-  ok "Conduit running"
-
-  # Start bridges — they generate registration.yaml on first boot.
-  say "Starting bridges (generating registration files)..."
   ctl start mautrix-whatsapp mautrix-discord
-
-  # Wait for registration files (up to 60 s each).
-  local all_ok=true
-  for bridge in whatsapp discord; do
-    for _ in $(seq 1 60); do
-      [ -f "${DATA_DIR}/${bridge}/registration.yaml" ] && break
-      sleep 1
-    done
-    if [ -f "${DATA_DIR}/${bridge}/registration.yaml" ]; then
-      ok "${bridge} registration.yaml ready"
-    else
-      warn "${bridge} registration.yaml missing — check: messaging-stack logs"
-      all_ok=false
-    fi
-  done
-
-  # Copy registrations into Conduit's data dir and restart it so it loads them.
-  if [ "$all_ok" = true ]; then
-    say "Registering bridges with Conduit..."
-    cp "${DATA_DIR}/whatsapp/registration.yaml" "${DATA_DIR}/conduit/whatsapp-registration.yaml"
-    cp "${DATA_DIR}/discord/registration.yaml"  "${DATA_DIR}/conduit/discord-registration.yaml"
-    ctl restart matrix-conduit
-    sleep 2
-    ok "Conduit restarted — bridges registered"
-  else
-    warn "Skipping bridge registration — fix errors above then re-run setup"
-  fi
+  sleep 2
+  ok "all services started"
 
   print_next_steps
 }
