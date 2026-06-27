@@ -251,7 +251,7 @@ if [ "$HOST" = "alien" ]; then
       : ;; # handled locally below
     *)
       say "Running '$SUBCMD' on ${ALIEN_HOST}..."
-      exec ssh -t "${ALIEN_HOST}" "messaging-stack $SUBCMD --host=local"
+      exec ssh "${ALIEN_HOST}" "messaging-stack $SUBCMD --host=local"
       ;;
   esac
 fi
