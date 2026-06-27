@@ -116,19 +116,33 @@ cmd_setup() {
   compose up -d
   ok "containers started"
 
-  # Bridges write registration.yaml on first boot — wait for them.
+  # Bridges write registration.yaml on first boot — wait up to 60 s each.
   say "Waiting for bridges to generate registration files…"
+  local all_ok=true
   for bridge in whatsapp discord; do
-    for _ in $(seq 1 30); do
+    for _ in $(seq 1 60); do
       [ -f "$DATA_DIR/$bridge/registration.yaml" ] && break
       sleep 1
     done
     if [ -f "$DATA_DIR/$bridge/registration.yaml" ]; then
       ok "$bridge registration.yaml ready"
     else
-      warn "$bridge registration.yaml not found yet — check \`messaging-stack logs\`"
+      warn "$bridge registration.yaml not found — check \`messaging-stack logs\`"
+      all_ok=false
     fi
   done
+
+  # Copy registrations into Conduit's data dir and restart it so it picks them
+  # up. conduit.toml already references these fixed paths.
+  if [ "$all_ok" = true ]; then
+    say "Registering bridges with Conduit…"
+    cp "$DATA_DIR/whatsapp/registration.yaml" "$DATA_DIR/conduit/whatsapp-registration.yaml"
+    cp "$DATA_DIR/discord/registration.yaml"  "$DATA_DIR/conduit/discord-registration.yaml"
+    compose restart conduit
+    ok "Conduit restarted — bridges registered"
+  else
+    warn "Skipped bridge registration — fix the errors above then re-run \`messaging-stack setup\`"
+  fi
 
   print_next_steps
 }
@@ -136,30 +150,23 @@ cmd_setup() {
 print_next_steps() {
   cat <<EOF
 
-$(say "Stack is up. Finish the wiring from WeeChat (these steps are interactive):")
+$(say "Stack is up. Three one-time steps to finish:")
 
-$(dim "1. Launch WeeChat and enable vim + matrix:")
+$(dim "1. Open the tunnel (keep this running in a tmux pane):")
+     messaging-stack tunnel
+
+$(dim "2. Connect WeeChat to the local Matrix server:")
      weechat
        /script install vim_mode.py
        /matrix server add local localhost:${CONDUIT_PORT}
        /matrix connect local
+       /matrix register ${MATRIX_USER} <choose-a-password>
 
-$(dim "2. Create your local account (first user becomes admin):")
-       /matrix register ${MATRIX_USER} <password>
+$(dim "3. Log in to WhatsApp and Discord:")
+     messaging-stack login-whatsapp
+     messaging-stack login-discord
 
-$(dim "3. Register the two bridges with Conduit. Open a chat with the admin bot")
-$(dim "   @conduit:${SERVER_NAME} and send 'register-appservice', then paste the")
-$(dim "   contents of each registration file as a fenced code block:")
-       ${DATA_DIR}/whatsapp/registration.yaml
-       ${DATA_DIR}/discord/registration.yaml
-
-$(dim "4. Log into your accounts:")
-       messaging-stack login-whatsapp
-       messaging-stack login-discord
-
-$(warn "Conduit registers appservices via its admin room — there is no file-drop")
-$(warn "shortcut, so steps 2–3 are a one-time manual ritual. After that, restart")
-$(warn "the bridges so they pick up the registration: messaging-stack restart")
+$(ok "Bridge registration with Conduit was handled automatically above.")
 EOF
 }
 

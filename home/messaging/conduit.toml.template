@@ -23,6 +23,13 @@ allow_federation = false                # purely local — no federation needed
 allow_check_for_updates = false
 trusted_servers = []
 
+# Appservice registrations. The setup script copies these from the bridge
+# containers into this directory and then restarts Conduit.
+registration_files = [
+  "/srv/conduit/whatsapp-registration.yaml",
+  "/srv/conduit/discord-registration.yaml",
+]
+
 [global.well_known]
 client = "http://__SERVER_NAME__:6167"
 server = "__SERVER_NAME__:6167"
