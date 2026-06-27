@@ -4,15 +4,13 @@
 # registers it with Conduit via the admin room.
 
 homeserver:
-    # Reached from inside the compose network — `conduit` is the service name.
-    address: http://conduit:6167
+    address: http://localhost:6167
     domain: __SERVER_NAME__
     software: standard
     async_media: false
 
 appservice:
-    # Where Conduit reaches this bridge (service name on the compose network).
-    address: http://mautrix-whatsapp:29318
+    address: http://localhost:29318
     hostname: 0.0.0.0
     port: 29318
 

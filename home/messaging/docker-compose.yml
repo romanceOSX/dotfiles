@@ -20,7 +20,7 @@ services:
       - "127.0.0.1:6167:6167"
 
   mautrix-whatsapp:
-    image: dock.mau.fi/mautrix/whatsapp:latest
+    image: ghcr.io/mautrix/whatsapp:latest
     restart: unless-stopped
     depends_on:
       - conduit
@@ -30,7 +30,7 @@ services:
       - "127.0.0.1:29318:29318"
 
   mautrix-discord:
-    image: dock.mau.fi/mautrix/discord:latest
+    image: ghcr.io/mautrix/discord:latest
     restart: unless-stopped
     depends_on:
       - conduit

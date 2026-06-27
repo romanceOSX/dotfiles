@@ -1,41 +1,40 @@
 #!/usr/bin/env bash
-# messaging-stack — manage the local WeeChat + Matrix messaging backend.
+# messaging-stack — manage the WeeChat + Matrix messaging backend on alien.
 #
-# Brings up a local Matrix homeserver (Conduit) bridged to WhatsApp and Discord
-# (mautrix-*), so WeeChat can act as a single vim-keybound TUI for both. No AI,
-# no cloud: every component runs on localhost (or on the `alien` Tailscale node).
+# WeeChat connects (via the Matrix plugin) to a Conduit homeserver running on
+# the always-on `alien` Tailscale node. Two mautrix bridges connect Conduit to
+# WhatsApp and Discord. All three run as systemd user services on alien — no
+# Docker, no VMs, no battery drain on macOS.
 #
 #   WeeChat ──Matrix──► Conduit ──► mautrix-whatsapp ──► WhatsApp Web
-#                               └──► mautrix-discord  ──► Discord API
-#
-# The compose file and config templates are installed by Home Manager under
-# ~/.config/messaging. Rendered configs and all runtime state live in the
-# gitignored data dir at ~/.local/share/messaging.
+#     (Mac)                     └──► mautrix-discord  ──► Discord API
+#   (localhost:6167 via tunnel)                 (all running on alien)
 #
 # Usage:
 #   messaging-stack setup [--host=alien|local]    first-time bootstrap
-#   messaging-stack start|stop|restart [--host=…] container lifecycle
-#   messaging-stack status [--host=…]             show containers + connect hint
-#   messaging-stack logs [--host=…]               tail all container logs
-#   messaging-stack tunnel                        SSH-forward alien's port to here
+#   messaging-stack start|stop|restart [--host=…] service lifecycle
+#   messaging-stack status [--host=…]             show service state
+#   messaging-stack logs [--host=…]               tail journald logs
+#   messaging-stack tunnel                        SSH-forward alien:6167 here
 #   messaging-stack login-whatsapp                print WhatsApp login steps
 #   messaging-stack login-discord                 print Discord login steps
 #
-# Default host is `alien` (always-on, no macOS battery drain). Pass --host=local
-# to run the docker stack on this machine instead (requires Colima running).
+# Default host is `alien`. Pass --host=local to run locally instead (services
+# must already be installed as systemd units via home-manager switch).
 set -euo pipefail
 
 # --- config ----------------------------------------------------------------
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/messaging"
 DATA_DIR="${MESSAGING_DATA:-$HOME/.local/share/messaging}"
-COMPOSE_FILE="$CONFIG_DIR/docker-compose.yml"
 
 SERVER_NAME="${MATRIX_SERVER_NAME:-localhost}"
 MATRIX_USER="${MATRIX_USER:-$USER}"
 USER_ID="@${MATRIX_USER}:${SERVER_NAME}"
 CONDUIT_PORT=6167
 
-ALIEN_HOST="${MESSAGING_ALIEN_HOST:-alien}"   # ssh target for the always-on node
+ALIEN_HOST="${MESSAGING_ALIEN_HOST:-alien}"
+
+SERVICES=(matrix-conduit mautrix-whatsapp mautrix-discord)
 
 # --- pretty output ---------------------------------------------------------
 c_head=$'\033[38;2;197;142;167m'   # mauve
@@ -49,19 +48,15 @@ warn() { printf '%s! %s%s\n' "$c_warn" "$*" "$c_off"; }
 dim()  { printf '%s%s%s\n' "$c_dim" "$*" "$c_off"; }
 die()  { printf '%sError: %s%s\n' $'\033[38;2;255;179;179m' "$*" "$c_off" >&2; exit 1; }
 
-# --- docker compose wrapper ------------------------------------------------
-# Always run compose with our data dir exported so the bind mounts resolve.
-compose() {
-  MESSAGING_DATA="$DATA_DIR" docker compose -f "$COMPOSE_FILE" "$@"
+# --- systemctl wrapper -----------------------------------------------------
+ctl() { systemctl --user "$@"; }
+
+require_services() {
+  ctl list-unit-files matrix-conduit.service >/dev/null 2>&1 \
+    || die "systemd unit matrix-conduit.service not found — run: nix-deploy alien"
 }
 
-require_docker() {
-  command -v docker >/dev/null 2>&1 || die "docker not found (is Colima running? \`colima start\`)"
-  docker info >/dev/null 2>&1 || die "docker daemon unreachable (try \`colima start\`)"
-  [ -f "$COMPOSE_FILE" ] || die "compose file missing at $COMPOSE_FILE (run home-manager switch)"
-}
-
-# Render a __TOKEN__ template to a destination file with the given substitutions.
+# Render a __TOKEN__ template to a destination file.
 render() {
   local src="$1" dst="$2"; shift 2
   local content; content="$(cat "$src")"
@@ -73,75 +68,81 @@ render() {
 }
 
 # ---------------------------------------------------------------------------
-# setup — generate tokens, render configs, start the stack
+# setup — generate configs, register bridges with Conduit, start services
 # ---------------------------------------------------------------------------
 cmd_setup() {
-  require_docker
-  say "Setting up the Matrix messaging stack (server: $SERVER_NAME, user: $USER_ID)"
+  require_services
+  say "Setting up the Matrix messaging stack (server: ${SERVER_NAME}, user: ${USER_ID})"
 
-  mkdir -p "$DATA_DIR/conduit/db" "$DATA_DIR/whatsapp" "$DATA_DIR/discord"
+  mkdir -p "${DATA_DIR}/conduit/db" "${DATA_DIR}/whatsapp" "${DATA_DIR}/discord"
 
-  # Render Conduit config (idempotent — safe to re-run).
-  render "$CONFIG_DIR/conduit.toml.template" "$DATA_DIR/conduit/conduit.toml" \
-    "__SERVER_NAME__" "$SERVER_NAME"
+  # Make sure linger is on so user services survive logout.
+  loginctl enable-linger "$USER" 2>/dev/null || true
+
+  # Render Conduit config (idempotent).
+  render "${CONFIG_DIR}/conduit.toml.template" "${DATA_DIR}/conduit/conduit.toml" \
+    "__SERVER_NAME__" "${SERVER_NAME}"
   ok "rendered conduit.toml"
 
-  # Per-bridge appservice tokens. Only generate once so existing registrations
-  # keep working across re-runs.
+  # Per-bridge appservice tokens (generated once, stable across re-runs).
   for bridge in whatsapp discord; do
-    local tok_file="$DATA_DIR/$bridge/.tokens"
+    local tok_file="${DATA_DIR}/${bridge}/.tokens"
     if [ ! -f "$tok_file" ]; then
       printf 'AS=%s\nHS=%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > "$tok_file"
     fi
   done
 
-  # shellcheck disable=SC1091
   local wa_as wa_hs dc_as dc_hs
-  wa_as=$(grep '^AS=' "$DATA_DIR/whatsapp/.tokens" | cut -d= -f2)
-  wa_hs=$(grep '^HS=' "$DATA_DIR/whatsapp/.tokens" | cut -d= -f2)
-  dc_as=$(grep '^AS=' "$DATA_DIR/discord/.tokens" | cut -d= -f2)
-  dc_hs=$(grep '^HS=' "$DATA_DIR/discord/.tokens" | cut -d= -f2)
+  wa_as=$(grep '^AS=' "${DATA_DIR}/whatsapp/.tokens" | cut -d= -f2)
+  wa_hs=$(grep '^HS=' "${DATA_DIR}/whatsapp/.tokens" | cut -d= -f2)
+  dc_as=$(grep '^AS=' "${DATA_DIR}/discord/.tokens" | cut -d= -f2)
+  dc_hs=$(grep '^HS=' "${DATA_DIR}/discord/.tokens" | cut -d= -f2)
 
-  render "$CONFIG_DIR/whatsapp.yaml.template" "$DATA_DIR/whatsapp/config.yaml" \
-    "__SERVER_NAME__" "$SERVER_NAME" "__USER_ID__" "$USER_ID" \
+  render "${CONFIG_DIR}/whatsapp.yaml.template" "${DATA_DIR}/whatsapp/config.yaml" \
+    "__SERVER_NAME__" "${SERVER_NAME}" "__USER_ID__" "${USER_ID}" \
     "__WA_AS_TOKEN__" "$wa_as" "__WA_HS_TOKEN__" "$wa_hs"
-  ok "rendered whatsapp config.yaml"
+  ok "rendered whatsapp/config.yaml"
 
-  render "$CONFIG_DIR/discord.yaml.template" "$DATA_DIR/discord/config.yaml" \
-    "__SERVER_NAME__" "$SERVER_NAME" "__USER_ID__" "$USER_ID" \
+  render "${CONFIG_DIR}/discord.yaml.template" "${DATA_DIR}/discord/config.yaml" \
+    "__SERVER_NAME__" "${SERVER_NAME}" "__USER_ID__" "${USER_ID}" \
     "__DC_AS_TOKEN__" "$dc_as" "__DC_HS_TOKEN__" "$dc_hs"
-  ok "rendered discord config.yaml"
+  ok "rendered discord/config.yaml"
 
-  say "Starting containers…"
-  compose up -d
-  ok "containers started"
+  # Start Conduit first so the bridges can reach it on startup.
+  say "Starting Conduit..."
+  ctl start matrix-conduit
+  sleep 3
+  ok "Conduit running"
 
-  # Bridges write registration.yaml on first boot — wait up to 60 s each.
-  say "Waiting for bridges to generate registration files…"
+  # Start bridges — they generate registration.yaml on first boot.
+  say "Starting bridges (generating registration files)..."
+  ctl start mautrix-whatsapp mautrix-discord
+
+  # Wait for registration files (up to 60 s each).
   local all_ok=true
   for bridge in whatsapp discord; do
     for _ in $(seq 1 60); do
-      [ -f "$DATA_DIR/$bridge/registration.yaml" ] && break
+      [ -f "${DATA_DIR}/${bridge}/registration.yaml" ] && break
       sleep 1
     done
-    if [ -f "$DATA_DIR/$bridge/registration.yaml" ]; then
-      ok "$bridge registration.yaml ready"
+    if [ -f "${DATA_DIR}/${bridge}/registration.yaml" ]; then
+      ok "${bridge} registration.yaml ready"
     else
-      warn "$bridge registration.yaml not found — check \`messaging-stack logs\`"
+      warn "${bridge} registration.yaml missing — check: messaging-stack logs"
       all_ok=false
     fi
   done
 
-  # Copy registrations into Conduit's data dir and restart it so it picks them
-  # up. conduit.toml already references these fixed paths.
+  # Copy registrations into Conduit's data dir and restart it so it loads them.
   if [ "$all_ok" = true ]; then
-    say "Registering bridges with Conduit…"
-    cp "$DATA_DIR/whatsapp/registration.yaml" "$DATA_DIR/conduit/whatsapp-registration.yaml"
-    cp "$DATA_DIR/discord/registration.yaml"  "$DATA_DIR/conduit/discord-registration.yaml"
-    compose restart conduit
+    say "Registering bridges with Conduit..."
+    cp "${DATA_DIR}/whatsapp/registration.yaml" "${DATA_DIR}/conduit/whatsapp-registration.yaml"
+    cp "${DATA_DIR}/discord/registration.yaml"  "${DATA_DIR}/conduit/discord-registration.yaml"
+    ctl restart matrix-conduit
+    sleep 2
     ok "Conduit restarted — bridges registered"
   else
-    warn "Skipped bridge registration — fix the errors above then re-run \`messaging-stack setup\`"
+    warn "Skipping bridge registration — fix errors above then re-run setup"
   fi
 
   print_next_steps
@@ -152,7 +153,7 @@ print_next_steps() {
 
 $(say "Stack is up. Three one-time steps to finish:")
 
-$(dim "1. Open the tunnel (keep this running in a tmux pane):")
+$(dim "1. Open the tunnel from your Mac (keep it in a tmux pane):")
      messaging-stack tunnel
 
 $(dim "2. Connect WeeChat to the local Matrix server:")
@@ -173,33 +174,37 @@ EOF
 # ---------------------------------------------------------------------------
 # lifecycle
 # ---------------------------------------------------------------------------
-cmd_start()   { require_docker; compose up -d; ok "stack started"; connect_hint; }
-cmd_stop()    { require_docker; compose down;  ok "stack stopped"; }
-cmd_restart() { require_docker; compose restart; ok "stack restarted"; }
-cmd_logs()    { require_docker; compose logs -f --tail=100; }
+cmd_start()   { require_services; ctl start   "${SERVICES[@]}"; ok "services started"; connect_hint; }
+cmd_stop()    { require_services; ctl stop    "${SERVICES[@]}"; ok "services stopped"; }
+cmd_restart() { require_services; ctl restart "${SERVICES[@]}"; ok "services restarted"; }
 
 cmd_status() {
-  require_docker
-  compose ps
+  require_services
+  ctl status "${SERVICES[@]}" --no-pager 2>&1 || true
   connect_hint
+}
+
+cmd_logs() {
+  require_services
+  journalctl --user -u matrix-conduit -u mautrix-whatsapp -u mautrix-discord -f --no-hostname
 }
 
 connect_hint() {
   echo
-  dim "WeeChat:  /matrix server add local localhost:${CONDUIT_PORT} && /matrix connect local"
+  dim "Mac:  messaging-stack tunnel   then   weechat → /matrix connect local"
 }
 
 # ---------------------------------------------------------------------------
-# tunnel — forward alien's localhost-bound Conduit port to this machine
+# tunnel — forward alien's Conduit port to localhost on this machine
 # ---------------------------------------------------------------------------
 cmd_tunnel() {
-  say "Forwarding ${ALIEN_HOST}:${CONDUIT_PORT} → localhost:${CONDUIT_PORT} (Ctrl-C to stop)"
-  dim "Leave this running, then point WeeChat at localhost:${CONDUIT_PORT}."
-  exec ssh -N -L "${CONDUIT_PORT}:localhost:${CONDUIT_PORT}" "$ALIEN_HOST"
+  say "Forwarding ${ALIEN_HOST}:${CONDUIT_PORT} → localhost:${CONDUIT_PORT}"
+  dim "Leave this running (Ctrl-C to stop), then /matrix connect local in WeeChat."
+  exec ssh -N -L "${CONDUIT_PORT}:localhost:${CONDUIT_PORT}" "${ALIEN_HOST}"
 }
 
 # ---------------------------------------------------------------------------
-# login helpers — print the WeeChat-side steps for each network
+# login helpers
 # ---------------------------------------------------------------------------
 cmd_login_whatsapp() {
   cat <<EOF
@@ -208,9 +213,8 @@ $(dim "In WeeChat, open a chat with the bridge bot and request a QR login:")
      /query @whatsappbot:${SERVER_NAME}
        login
 
-$(dim "A QR code is printed straight into the buffer. On your phone:")
+$(dim "A QR code appears in the buffer. On your phone:")
 $(dim "  WhatsApp → Settings → Linked Devices → Link a Device → scan it.")
-$(dim "Your chats then populate as WeeChat buffers.")
 EOF
 }
 
@@ -219,37 +223,35 @@ cmd_login_discord() {
 $(say "Link Discord")
 $(dim "In WeeChat, open a chat with the bridge bot:")
      /query @discordbot:${SERVER_NAME}
-       login-qr        # scan with the Discord mobile app, OR
+       login-qr        # scan with Discord mobile app (safer), OR
        login-token user <your-token>
 
-$(warn "Token login uses your real account token — keep it private. QR is safer.")
-$(dim "Once linked, bridge your guilds/DMs with:  guilds bridge <guild-id>")
+$(dim "Once linked, bridge your guilds with:  guilds bridge <guild-id>")
 EOF
 }
 
 # ---------------------------------------------------------------------------
-# arg parsing
+# arg parsing + delegation
 # ---------------------------------------------------------------------------
 HOST=alien
 SUBCMD=""
-args=()
 for arg in "$@"; do
   case "$arg" in
     --host=*) HOST="${arg#--host=}" ;;
     -h|--help) SUBCMD="help" ;;
-    *) if [ -z "$SUBCMD" ]; then SUBCMD="$arg"; else args+=("$arg"); fi ;;
+    *) [ -z "$SUBCMD" ] && SUBCMD="$arg" ;;
   esac
 done
 
-# Delegate to the always-on node: alien runs the very same script there locally
-# (installed via Home Manager). Keeps Conduit bound to localhost on alien; use
-# `messaging-stack tunnel` from this machine to reach it.
+# When host is alien, delegate all service-management commands there via SSH.
+# Always pass --host=local so the remote invocation runs in-place.
 if [ "$HOST" = "alien" ]; then
   case "$SUBCMD" in
-    tunnel|login-whatsapp|login-discord|help|"") : ;;  # handled locally below
+    tunnel|login-whatsapp|login-discord|help|"")
+      : ;; # handled locally below
     *)
       say "Running '$SUBCMD' on ${ALIEN_HOST}..."
-      exec ssh -t "$ALIEN_HOST" "messaging-stack $SUBCMD"
+      exec ssh -t "${ALIEN_HOST}" "messaging-stack $SUBCMD --host=local"
       ;;
   esac
 fi
@@ -265,7 +267,7 @@ case "$SUBCMD" in
   login-whatsapp)  cmd_login_whatsapp ;;
   login-discord)   cmd_login_discord ;;
   help|"")
-    sed -n '3,26p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '3,28p' "$0" | sed 's/^# \{0,1\}//'
     ;;
   *) die "unknown command: $SUBCMD (try: messaging-stack help)" ;;
 esac

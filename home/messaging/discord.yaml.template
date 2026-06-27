@@ -4,13 +4,13 @@
 # registers it with Conduit via the admin room.
 
 homeserver:
-    address: http://conduit:6167
+    address: http://localhost:6167
     domain: __SERVER_NAME__
     software: standard
     async_media: false
 
 appservice:
-    address: http://mautrix-discord:29334
+    address: http://localhost:29334
     hostname: 0.0.0.0
     port: 29334
 
