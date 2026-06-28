@@ -71,3 +71,14 @@ and lists them so they can be integrated first. Add new nodes by extending the
 - Home Manager never overwrites files it didn't create; pre-existing files cause
   an "in the way" abort. Use `switch -b backup` to move them aside.
 - Keep `local.nix` machine-specific; `local.nix.example` is the template.
+- **SF Mono in Ghostty (macOS):** macOS blocks third-party apps from loading
+  user-installed fonts named "SF Mono" (CoreText silently rejects them). The
+  fix is to copy the fonts out of Terminal.app's bundle, which ships the
+  original Apple-signed OTF/TTFs:
+  ```sh
+  cp /System/Applications/Utilities/Terminal.app/Contents/Resources/Fonts/SFMono*Terminal.ttf ~/Library/Fonts/
+  ```
+  After that, `font-family = SF Mono Terminal` works in `home/ghostty/config`
+  (this is the `SFMonoTerminal-*` family — the variant Terminal.app itself
+  uses). This is a one-time manual step — Nix cannot manage it because the
+  source files live inside a system app bundle.
