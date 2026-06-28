@@ -1,9 +1,10 @@
 # ghostty — pastel rainbow theme with 90% opacity transparent background.
 # Source of truth; symlinked to ~/.config/ghostty/config via home/programs.nix.
 
-# --- Font (SFMono Nerd Font Complete, 14pt) ---
-font-family = SFMono Nerd Font
-font-size = 14
+# --- Font (SF Mono Terminal 12pt, Symbols Nerd Font for glyphs) ---
+font-family = SF Mono Terminal
+font-family = Symbols Nerd Font Mono
+font-size = 12
 
 # --- Window / transparency ---
 # No background-blur: it noticeably increases GPU/battery draw.
@@ -19,7 +20,7 @@ shell-integration-features = ssh-env,ssh-terminfo
 
 # --- Base colors ---
 # Darker base so pastels pop more
-background = 1a1a26
+background = 202020
 foreground = e8e6f0
 cursor-color = ffb3d9
 cursor-text = 1a1a26
