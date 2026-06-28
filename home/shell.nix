@@ -26,6 +26,11 @@
       "tw=1;38;2;246;207;148"
       "ow=38;2;246;207;148"
     ];
+  } // lib.optionalAttrs pkgs.stdenv.isDarwin {
+    # Point mtr at the setuid-root mtr-packet copy maintained by the nix-darwin
+    # activation script (see darwin/default.nix), so `mtr` runs without sudo.
+    # macOS-only: Linux mtr-packet works unprivileged via datagram ICMP.
+    MTR_PACKET = "/usr/local/bin/mtr-packet";
   };
 
   # ~/.local/bin (scripts) + TeX on macOS. scripts.nix also adds ~/.local/bin,
