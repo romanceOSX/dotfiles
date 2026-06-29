@@ -23,7 +23,7 @@ style = "blue"
 # rainbow palette. Heuristic mode also detects flake-based dev shells.
 [nix_shell]
 disabled = false
-heuristic = true
+heuristic = false
 symbol = "❄️"
 format = "[$symbol]($style) "
 style = "bold #F6CF94"
