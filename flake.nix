@@ -53,7 +53,7 @@
       #   isWSL          — true under WSL (Syncthing then runs on the Windows host,
       #                    not via nix). Defaults to false (bare Linux / macOS).
       mkHome =
-        { system, username, homeDirectory, isWSL ? false, isAlien ? false, includeAoe ? true }:
+        { system, username, homeDirectory, isWSL ? false, isAlien ? false, includeAoe ? true, includeHerdr ? true }:
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
             inherit system;
@@ -75,8 +75,9 @@
             # is impractical (e.g. Raspberry Pi with no binary cache).
             aoe = if includeAoe then agent-of-empires.packages.${system}.default else null;
             # herdr — AI agent multiplexer (like tmux, but for coding agents).
-            # Null-guarded so a missing system attr won't fail the eval.
-            herdr = herdr.packages.${system}.default or null;
+            # Set includeHerdr = false for hosts where compiling Rust from source
+            # is impractical (e.g. Raspberry Pi with no binary cache).
+            herdr = if includeHerdr then herdr.packages.${system}.default or null else null;
             inherit isWSL;
             # Gates the Alienware-only utilities (rom-alien-rgb-*). True only for
             # the "alien" host below; every other host gets `false` via the
@@ -135,13 +136,14 @@
 
         # Raspberry Pi (64-bit Raspberry Pi OS / Debian Bookworm, aarch64).
         # Identity is hardcoded so the headless Pi needs no local.nix.
-        # aoe is excluded — no binary cache for aarch64-linux means compiling
-        # ~761 Rust crates from source, which takes hours on Pi hardware.
+        # aoe/herdr excluded — no binary cache for aarch64-linux means compiling
+        # Rust from source, which takes hours on Pi hardware.
         "pi" = mkHome {
           system = "aarch64-linux";
           username = "romance";
           homeDirectory = "/home/romance";
           includeAoe = false;
+          includeHerdr = false;
         };
       };
 
