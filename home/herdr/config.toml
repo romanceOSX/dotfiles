@@ -1,0 +1,7 @@
+[keys]
+prefix = "ctrl+a"
+
+[ui]
+pane_borders = false
+pane_gaps = false
+sidebar_width = 18

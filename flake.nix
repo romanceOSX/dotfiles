@@ -28,10 +28,11 @@
       url = "github:nix-darwin/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    herdr.url = "github:ogulcancelik/herdr";
   };
 
   outputs =
-    { nixpkgs, nixpkgs-neovim, home-manager, agent-of-empires, nix-darwin, ... }:
+    { nixpkgs, nixpkgs-neovim, home-manager, agent-of-empires, nix-darwin, herdr, ... }:
     let
       # Machine-local identity — each host defines local.nix once (gitignored).
       # Sensible personal defaults are merged with (and overridden by) local.nix,
@@ -73,6 +74,9 @@
             # Set includeAoe = false for hosts where compiling Rust from source
             # is impractical (e.g. Raspberry Pi with no binary cache).
             aoe = if includeAoe then agent-of-empires.packages.${system}.default else null;
+            # herdr — AI agent multiplexer (like tmux, but for coding agents).
+            # Null-guarded so a missing system attr won't fail the eval.
+            herdr = herdr.packages.${system}.default or null;
             inherit isWSL;
             # Gates the Alienware-only utilities (rom-alien-rgb-*). True only for
             # the "alien" host below; every other host gets `false` via the
