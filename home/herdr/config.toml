@@ -1,5 +1,6 @@
 [keys]
 prefix = "ctrl+a"
+toggle_sidebar = "prefix+a"
 
 [ui]
 pane_borders = false
