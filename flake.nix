@@ -14,12 +14,6 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Agent of Empires — session manager for AI coding agents (Rust).
-    # Consumed as a flake package; `aoe` is wired into home.packages.
-    agent-of-empires = {
-      url = "github:agent-of-empires/agent-of-empires";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     # nix-darwin — macOS system layer. Used only for the things Home Manager
     # can't express on macOS (root LaunchDaemons). See darwinConfigurations
     # below and ./darwin. Follows the same nixpkgs so the system-managed
@@ -32,7 +26,7 @@
   };
 
   outputs =
-    { nixpkgs, nixpkgs-neovim, home-manager, agent-of-empires, nix-darwin, herdr, ... }:
+    { nixpkgs, nixpkgs-neovim, home-manager, nix-darwin, herdr, ... }:
     let
       # Machine-local identity — each host defines local.nix once (gitignored).
       # Sensible personal defaults are merged with (and overridden by) local.nix,
@@ -53,7 +47,7 @@
       #   isWSL          — true under WSL (Syncthing then runs on the Windows host,
       #                    not via nix). Defaults to false (bare Linux / macOS).
       mkHome =
-        { system, username, homeDirectory, isWSL ? false, isAlien ? false, includeAoe ? true, includeHerdr ? true }:
+        { system, username, homeDirectory, isWSL ? false, isAlien ? false, includeHerdr ? true }:
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
             inherit system;
@@ -70,10 +64,6 @@
               inherit system;
               config.allowUnfree = true;
             };
-            # Agent of Empires `aoe` binary, built from its own flake.
-            # Set includeAoe = false for hosts where compiling Rust from source
-            # is impractical (e.g. Raspberry Pi with no binary cache).
-            aoe = if includeAoe then agent-of-empires.packages.${system}.default else null;
             # herdr — AI agent multiplexer (like tmux, but for coding agents).
             # Set includeHerdr = false for hosts where compiling Rust from source
             # is impractical (e.g. Raspberry Pi with no binary cache).
@@ -136,13 +126,12 @@
 
         # Raspberry Pi (64-bit Raspberry Pi OS / Debian Bookworm, aarch64).
         # Identity is hardcoded so the headless Pi needs no local.nix.
-        # aoe/herdr excluded — no binary cache for aarch64-linux means compiling
+        # herdr excluded — no binary cache for aarch64-linux means compiling
         # Rust from source, which takes hours on Pi hardware.
         "pi" = mkHome {
           system = "aarch64-linux";
           username = "romance";
           homeDirectory = "/home/romance";
-          includeAoe = false;
           includeHerdr = false;
         };
       };

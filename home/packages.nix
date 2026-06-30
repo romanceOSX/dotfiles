@@ -1,4 +1,4 @@
-{ pkgs, pkgs-neovim, aoe, lib, ... }:
+{ pkgs, pkgs-neovim, lib, ... }:
 {
     # Toolchains + the CLI utilities the configs/scripts assume on PATH.
     # (zsh, fzf, starship, lazygit, yazi, tmux, git come from their own
@@ -13,12 +13,7 @@
             # 0.11.x lacks features aerial.nvim needs. 0.12.0 predates
             # the regression and supports aerial.
             pkgs-neovim.neovim
-
-            # --- AI agent session manager (flake input, see flake.nix) ---
-            # `aoe` — run multiple AI coding agents in parallel across branches.
-            # null on hosts where includeAoe = false (e.g. Pi — no aarch64 cache).
         ]
-        ++ lib.optional (aoe != null) aoe
         ++ (with pkgs; [
             # --- toolchains (chosen via setup) ---
             nodejs_22 # Node.js (replaces the homebrew nvm lazy-load on nix hosts)

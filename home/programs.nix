@@ -136,13 +136,6 @@
   xdg.configFile."btop/themes/pastel-rainbow.theme".source =
     ./btop/pastel-rainbow.theme;
 
-  # aoe (agent-of-empires) — custom muted pastel-rainbow theme. aoe owns its
-  # config.toml (machine-local, it rewrites it), so we only ship the theme file
-  # here; activate it with `[theme] name = "pastel-rainbow"` in config.toml or
-  # via aoe's Settings.
-  xdg.configFile."agent-of-empires/themes/pastel-rainbow.toml".source =
-    ./aoe/pastel-rainbow.toml;
-
   # delta — syntax-highlighted pager for `git diff` / `git show` / `git log -p`.
   # (Standalone `delta` is also aliased to `diff` for ad-hoc file compares.)
   # Pastel-rainbow palette: rose C58EA7 · mint 94F7E4 · green B4FA9E ·

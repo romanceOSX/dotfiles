@@ -128,15 +128,6 @@ in
       bind X kill-session
       set-hook -g after-new-session 'resize-pane -D 1'
 
-      # Auto-close dead panes in aoe agent sessions (aoe sets remain-on-exit on
-      # its panes, which would otherwise leave a "Pane is dead" message when a
-      # session is stopped). The main "aoe" dashboard session is unaffected.
-      set-hook -g pane-died 'if-shell "case \"#{session_name}\" in aoe_*) exit 0;; *) exit 1;; esac" "kill-pane"'
-
-      # NOTE: don't add window-size hooks for aoe (agent-of-empires) sessions —
-      # aoe owns its own sizing and such hooks just race its per-frame resize
-      # (caused a fill-then-shrink flicker). See git history (~mid-2026).
-
       # --- Status bar ---
       set -g status on
 
@@ -178,7 +169,7 @@ in
       #     entries here are ADDED to it. A leading `~` relaxes name matching so
       #     the full binary path saved in the snapshot still matches.
       set -g @resurrect-capture-pane-contents 'on'
-      set -g @resurrect-processes 'ssh "~lazygit" "~btop" "~yazi" "~taskwarrior-tui" "~claude" "~copilot" "~aoe"'
+      set -g @resurrect-processes 'ssh "~lazygit" "~btop" "~yazi" "~taskwarrior-tui" "~claude" "~copilot"'
 
       # --- sessionx (options harmless if the plugin isn't installed) ---
       set -g @sessionx-bind 'o'
