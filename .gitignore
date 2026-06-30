@@ -12,3 +12,9 @@ result-*
 
 # machine-local sessionizer copy — not read by the flake, safe to ignore
 home/tmux-sessionizer.toml
+
+# herdr writes runtime state into home/herdr/ (it's the out-of-store symlink
+# target for ~/.config/herdr). Only config.toml is ours to track; ignore the
+# logs, sockets, and session state it drops alongside it.
+home/herdr/*
+!home/herdr/config.toml
