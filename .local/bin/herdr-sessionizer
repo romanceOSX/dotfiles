@@ -1,0 +1,80 @@
+#!/usr/bin/env sh
+
+# herdr-sessionizer — the herdr counterpart to tmux-sessionizer. Pick a project
+# directory, then open (or focus) a herdr workspace pre-populated with three
+# tabs: an editor, lazygit, and a claude session — each launched in the chosen
+# directory. Wire it to a key with a [[keys.command]] entry in herdr's
+# config.toml (type = "pane"), or run it directly with a path argument.
+#
+# Driven entirely through herdr's CLI/socket API (herdr workspace/tab/pane …),
+# which returns JSON; jq parses the ids back out. No native "directory template"
+# feature exists in herdr, so we script the layout here.
+
+# Shared fzf navigation contract — see docs/keybindings.md. Passed inline
+# because this may run in a popup pane that doesn't inherit FZF_DEFAULT_OPTS.
+FZF_NAV="--bind=ctrl-j:down,ctrl-k:up,ctrl-n:down,ctrl-p:up,ctrl-y:accept,tab:accept"
+
+# Per-tab commands. Override via env (e.g. HERDR_EDITOR_CMD) if you want.
+EDITOR_CMD="${HERDR_EDITOR_CMD:-nvim}"
+LAZYGIT_CMD="${HERDR_LAZYGIT_CMD:-lazygit}"
+CLAUDE_CMD="${HERDR_CLAUDE_CMD:-claude}"
+
+# --- Directory selection (same roots as tmux-sessionizer) -------------------
+# A bare path argument is used verbatim; otherwise fzf-browse the default roots.
+if [ "$#" -eq 1 ]; then
+    selected=$1
+else
+    selected=$(
+        { printf '%s\n' ~/git ~ ~/notes; \
+            find -L ~/git ~ ~/notes -mindepth 1 -maxdepth 1 -type d 2>/dev/null; } \
+        | awk '!seen[$0]++' | fzf $FZF_NAV
+    )
+fi
+[ -z "$selected" ] && exit 0
+
+label=$(basename "$selected" | tr . _)
+
+# herdr must be running for the socket API to answer.
+if ! herdr status server >/dev/null 2>&1; then
+    echo "herdr-sessionizer: herdr server not running" >&2
+    exit 1
+fi
+
+# Focus an existing workspace with this label instead of duplicating it.
+existing=$(herdr workspace list 2>/dev/null \
+    | jq -r --arg l "$label" \
+        '.result.workspaces[] | select(.label == $l) | .workspace_id' | head -n1)
+if [ -n "$existing" ]; then
+    herdr workspace focus "$existing" >/dev/null 2>&1
+    exit 0
+fi
+
+# --- Build the workspace ----------------------------------------------------
+# The new workspace ships with one tab + root pane; that becomes the editor.
+created=$(herdr workspace create --cwd "$selected" --label "$label" --focus 2>/dev/null)
+wid=$(printf '%s' "$created" | jq -r '.result.workspace.workspace_id // empty')
+editor_pane=$(printf '%s' "$created" | jq -r '.result.root_pane.pane_id // empty')
+editor_tab=$(printf '%s' "$created" | jq -r '.result.root_pane.tab_id // empty')
+if [ -z "$wid" ] || [ -z "$editor_pane" ]; then
+    echo "herdr-sessionizer: workspace create failed" >&2
+    exit 1
+fi
+
+herdr tab rename "$editor_tab" editor >/dev/null 2>&1
+herdr pane run "$editor_pane" "$EDITOR_CMD" >/dev/null 2>&1
+
+# Helper: create a labelled tab in this workspace and run a command in its pane.
+make_tab() {
+    _label=$1
+    _cmd=$2
+    _out=$(herdr tab create --workspace "$wid" --cwd "$selected" \
+        --label "$_label" --no-focus 2>/dev/null)
+    _pane=$(printf '%s' "$_out" | jq -r '.result.root_pane.pane_id // empty')
+    [ -n "$_pane" ] && herdr pane run "$_pane" "$_cmd" >/dev/null 2>&1
+}
+
+make_tab lazygit "$LAZYGIT_CMD"
+make_tab claude "$CLAUDE_CMD"
+
+# Land on the editor tab.
+herdr tab focus "$editor_tab" >/dev/null 2>&1

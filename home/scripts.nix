@@ -17,6 +17,10 @@
       source = ../.local/bin/tmux-sessionizer;
       executable = true;
     };
+    ".local/bin/herdr-sessionizer" = {
+      source = ../.local/bin/herdr-sessionizer;
+      executable = true;
+    };
     ".local/bin/tmux-launcher" = {
       source = ../.local/bin/tmux-launcher;
       executable = true;

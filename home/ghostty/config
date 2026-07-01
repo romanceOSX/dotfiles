@@ -10,6 +10,16 @@ font-size = 12
 # No background-blur: it noticeably increases GPU/battery draw.
 background-opacity = 0.90
 
+# Tabs merged into the titlebar — one compact row instead of a separate tab
+# strip. On macOS there's no way to hide the tab bar while keeping native tabs
+# (window-show-tab-bar = never is GTK-only, and `hidden` removes the titlebar,
+# which takes native tabs + ctrl+tab with it). `tabs` is the most compact style
+# that keeps tab switching working.
+#macos-titlebar-style = tabs
+# Alternative: fully borderless (no titlebar). Drops native tabs and ctrl+tab,
+# but gives a clean frameless window — swap it in when you don't need tabs.
+macos-titlebar-style = hidden
+
 # --- SSH terminfo handshake (Ghostty 1.2.0+) ---
 # ssh-terminfo: auto-install the xterm-ghostty entry on remote hosts that lack
 # it (the long tail of unmanaged/embedded boxes), so ^L/clear doesn't corrupt

@@ -1,8 +1,23 @@
 [keys]
 prefix = "ctrl+a"
 toggle_sidebar = "prefix+a"
+next_workspace = "prefix+ctrl+n"
+previous_workspace = "prefix+ctrl+p"
 
 [ui]
 pane_borders = false
 pane_gaps = false
 sidebar_width = 18
+
+[theme]
+name = "nord"
+auto_switch = false
+
+# Project sessionizer — prefix+f opens a temp pane running herdr-sessionizer,
+# which fzf-picks a directory (~/git, ~, ~/notes) and spawns a workspace with
+# editor / lazygit / claude tabs. The pane closes once the picker exits.
+[[keys.command]]
+key = "prefix+f"
+type = "pane"
+command = "herdr-sessionizer"
+description = "project sessionizer (editor/lazygit/claude tabs)"
