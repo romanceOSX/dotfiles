@@ -42,57 +42,114 @@ taskopen 15        # opens the annotated URL/file
 timew summary :week
 ```
 
-## Sync (serverless — Option A)
+## Sync (cloud — WingTask)
 
-No external service, no cloud. Uses **TaskChampion local sync**: `task sync`
-reconciles your local DB against an on-disk op-log at `~/.local/share/task-sync`,
-and **Syncthing replicates that dir** (not the live DB) across machines.
+Tasks sync via [WingTask](https://wingtask.com), a hosted **TaskChampion** sync
+server with a web/PWA client — so the same tasks are reachable from a phone or
+browser, not just machines that clone this repo. (Previously used a serverless
+Syncthing-replicated local sync dir with no external service — see git history
+at commit `01edd671` if you want to revert to that instead.)
 
-- **Automatic:** an `on-exit` hook runs `task sync` after every change, so you
-  normally never sync by hand. `tsync` (= `task sync`) is there if you want to.
-- **macOS & bare Linux** run Syncthing via nix (`services.syncthing`). Pair your
-  other device + accept the `taskwarrior-sync` folder at <http://127.0.0.1:8384>.
-- **WSL** is the exception: Syncthing runs on the *Windows host*, so the nix
-  service is disabled there (via the `isWSL` flag in `flake.nix`). Point the sync
-  dir at the Windows-synced folder instead, e.g.
-  `ln -s /mnt/c/Users/<you>/task-sync ~/.local/share/task-sync`.
+**One-time setup, per machine you want in the sync mesh:**
 
-## Adding a new machine to the sync (read this when pulling on a new box)
+1. Sign up at <https://app.wingtask.com> and get your sync endpoint
+   (`serverUrl`) and `clientId` from the account/sync settings.
+2. Generate a shared encryption secret **once**: `openssl rand -base64 32`.
+3. Add all three to `local.nix` on that machine (kept out of git deliberately —
+   never commit real credentials):
+   ```nix
+   wingtaskServerUrl = "https://<your-wingtask-sync-endpoint>";
+   wingtaskClientId = "<uuid-from-wingtask>";
+   wingtaskEncryptionSecret = "<the-secret-from-step-2>";
+   ```
+   `clientId` and `encryptionSecret` **must be identical** on every machine
+   sharing this task database — `clientId` identifies the shared task database
+   itself, not the individual machine.
+4. `home-manager switch --flake .#<host>`, then run `task sync` once (there is
+   no separate "init" step — `sync init` is not a real subcommand in TW3's
+   native TaskChampion protocol, despite older WingTask docs mentioning it for
+   their legacy taskd setup).
 
-Cloning this repo gives a machine the **tools and settings only** — not your
-identity and not your tasks. Each machine generates its own Syncthing identity
-(`key.pem`, kept locally, **never committed**); the public **Device IDs** of all
-machines are declared in `home/taskwarrior.nix` (`syncthingDevices`). The same
-list runs everywhere, so every machine already knows its peers.
+Hosts that don't set these three fields simply get no sync configured — this
+is all opt-in per machine.
 
-To bring a new machine into the mesh:
+**If this machine already has real task history** (e.g. it was previously in
+the Syncthing/local-sync mesh — this applies to `osx`, which was), the first
+`task sync` will likely fail with something like:
 
-1. `home-manager switch` on the new machine (installs everything; Syncthing
-   generates its identity on first run).
-2. Get its Device ID: `syncthing --device-id`.
-3. Add it to `syncthingDevices` in `home/taskwarrior.nix`, commit, and **push**.
-4. `git pull` + `home-manager switch` on the *other* machines so they learn the
-   new peer (the declared list is the source of truth — GUI-added devices are
-   reverted on activation).
-5. First `task sync` on the new machine pulls your whole task list.
+```
+Failed to synchronize with server: Server Error: https://sync.wingtask.com/v1/client/get-child-version/<uuid> responded with 410 Gone
+```
 
-The machine marked `introducer = true` (your always-on host) auto-introduces new
-peers to the rest, so in practice you mostly only add the new ID in one place.
+This is **not a credentials or config problem** — a brand-new/empty replica
+syncs against the same server/client_id/secret without issue. The cause is
+that `~/.local/share/task/taskchampion.sqlite3` carries internal sync
+bookkeeping from the old local-sync setup, which conflicts with a fresh,
+never-before-synced WingTask account. Fix it once, per machine, like this
+(your tasks are never lost — only the sync bookkeeping is reset):
 
-**Security:** Device IDs are public (safe in git). The secret is each machine's
-Syncthing `key.pem` — `~/Library/Application Support/Syncthing/` on macOS,
-`~/.local/state/syncthing/` (or `$XDG_STATE_HOME/syncthing`) on Linux — never
-commit it, or a cloner would *become* that device. Same for
-`sync.encryption_secret` if you set one (keep it in `local.nix`).
+```bash
+# 1. Back up (belt and suspenders — this dir is small)
+cp -a ~/.local/share/task ~/.local/share/task-backup-$(date +%Y%m%d-%H%M%S)
+
+# 2. Export everything (all statuses)
+task export > /tmp/task-export.json
+
+# 3. Move the old db aside so Taskwarrior creates a fresh, empty replica
+mv ~/.local/share/task/taskchampion.sqlite3 ~/.local/share/task/taskchampion.sqlite3.pre-wingtask-migration
+
+# 4. Confirm the fresh replica syncs cleanly (this also pulls down WingTask's
+#    default onboarding tasks — harmless, delete them once read)
+task sync
+
+# 5. Reimport your tasks and push them up
+task import /tmp/task-export.json
+task sync
+```
+
+Sanity-check before/after with `task export | python3 -c "import json,sys;
+print(len(json.load(sys.stdin)))"` to confirm the count you expect is present,
+then delete the `.pre-wingtask-migration` file and the backup dir once happy.
+
+**Automatic sync is two-sided:**
+
+- **Push:** an `on-exit` hook runs `task sync` after every local change, so
+  edits made here reach WingTask within moments.
+- **Pull:** nothing local triggers a pull when a task is added/edited from the
+  WingTask web UI or phone PWA, so a timer runs `task sync` every 10 minutes
+  (`systemd --user` timer on Linux, a `launchd` agent on macOS) to catch those
+  changes. `tsync` (= `task sync`) is there for an immediate manual sync.
+- **WSL:** the systemd timer needs `systemd=true` in `/etc/wsl.conf`. If that's
+  not set, fall back to manual `tsync` (or a Windows Task Scheduler entry
+  running `wsl.exe -e task sync`).
+
+### Where the credentials end up
+
+`wingtaskClientId` and `wingtaskEncryptionSecret` identify and decrypt your
+task data, so it's worth knowing exactly where they land on a given machine:
+
+1. **`local.nix`** (repo root) — plaintext. Deliberately *not* gitignored (so
+   the flake can read it) but meant to stay uncommitted: `git add local.nix`
+   is required for the flake to see it (untracked files are invisible to a
+   git-based flake), but **never `git commit` it**.
+2. **`~/.config/task/taskrc`** — the rendered config, `644` (world-readable on
+   that machine). Home Manager regenerates this as a real file (not a store
+   symlink) via the `regenDotTaskRc` activation step, since `task config`
+   needs to write to it directly.
+3. **The Nix store** — the built `hm_...taskrc` derivation is `444 root:root`,
+   which is **world-readable by Nix design** (any local user on the machine
+   can read store paths) and **persists even after you delete/change
+   `local.nix`**, until garbage collected (`nix-collect-garbage`). This is a
+   general property of secrets passed through `home.file`/`programs.*.config`
+   in Nix, not specific to this setup — if that's ever a real concern (e.g. a
+   genuinely multi-user machine), look at `sops-nix` or `agenix` instead of
+   plain `local.nix`.
 
 ### Caveats
 
-- **`task undo` is effectively disabled.** Syncing discards undo history, and we
-  sync after every change. (Switch to debounced/periodic sync if you want undo.)
+- **`task undo` is effectively disabled.** Syncing discards undo history, and
+  we sync after every change.
 - **Recurring tasks:** set `recurrence=on` on ONE primary machine and `off` on
   the others to avoid duplicates on sync.
-- **At-rest encryption (optional):** set the *same* `sync.encryption_secret` on
-  every machine (keep it out of git — e.g. in `local.nix`) to encrypt the synced
-  op-log.
 - Hooks live in `<data.location>/hooks` (`~/.local/share/task/hooks`), **not**
   `~/.config/task/hooks` — a TW3 change.
