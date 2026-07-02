@@ -290,6 +290,7 @@ Formatters: `stylua`, `black`, `isort`, `prettier`, `mdformat`.
 | `copilot-sessions` | GitHub Copilot CLI session manager |
 | `install-tailscaled-daemon` | One-shot script to install the tailscale daemon service |
 | `wsl-sync-dns` | Syncs WSL `/etc/resolv.conf` with the Windows DNS config |
-| `fix-sudo-path` | Fixes `sudo` PATH on WSL so Nix-installed tools are available under sudo |
+| `fix-sudo-path` | (Linux) Adds Nix bin paths to `sudo`'s `secure_path` (via an `/etc/sudoers.d/nix-path` drop-in) so Nix-installed tools work under sudo |
 | `enable-wake-on-lan` | Enables Wake-on-LAN on the active network interface |
+| `rom-claude-mem` | Standalone `/memory` picker for Claude Code — edit user/project `CLAUDE.md` or open the auto-memory folder outside the REPL |
 | `install-sshd-daemon` | (Linux) Sets up the openssh daemon as a user service |

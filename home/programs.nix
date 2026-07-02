@@ -209,8 +209,14 @@
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;
-    # Colima injects its own SSH host into a side-file; Include it on Darwin.
-    extraConfig = lib.mkIf pkgs.stdenv.isDarwin ''
+    # Machine-local hosts (dynamically discovered nodes, jump boxes, corporate
+    # SSH targets) are NOT managed by nix — each machine keeps its own list in
+    # ~/.ssh/config.local. ssh silently ignores the Include if the file is
+    # absent, so this is safe on every host. Colima injects its own SSH host
+    # into a side-file on Darwin; Include that too.
+    extraConfig = ''
+      Include ~/.ssh/config.local
+    '' + lib.optionalString pkgs.stdenv.isDarwin ''
       Include ~/.config/colima/ssh_config
     '';
     settings = {

@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# rom-claude-mem — Claude Code "/memory" menu, standalone.
+#
+# Reproduces Claude Code's `/memory` picker outside the REPL: choose which
+# memory file to edit and it opens in $EDITOR. Handy because `/memory` only
+# exists inside a Claude session, but the files are just plain Markdown you
+# may want to edit from any shell.
+#
+#   1. User memory     -> ~/.claude/CLAUDE.md   (global, all projects)
+#   2. Project memory  -> ./CLAUDE.md           (repo root if in a git repo)
+#   3. Open auto-memory folder -> ~/.claude
+#
+# Missing files are created (with a header) before editing. Run directly or
+# via `rom-claude-mem`.
+set -euo pipefail
+
+EDITOR="${EDITOR:-nvim}"
+USER_MEM="$HOME/.claude/CLAUDE.md"
+MEM_DIR="$HOME/.claude"
+
+# Project memory: repo root if inside a git work tree, else $PWD.
+if PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+    PROJECT_MEM="$PROJECT_ROOT/CLAUDE.md"
+else
+    PROJECT_ROOT="$PWD"
+    PROJECT_MEM="$PWD/CLAUDE.md"
+fi
+
+# Pastel-rainbow palette (matches rainbow-prompt / eza / yazi).
+TEAL=$'\e[38;2;148;247;228m'
+GREEN=$'\e[38;2;180;250;158m'
+DIM=$'\e[2m'
+BOLD=$'\e[1m'
+RESET=$'\e[0m'
+
+state() { [[ -e "$1" ]] && printf '%s' "${GREEN}exists${RESET}" || printf '%s' "${DIM}not created${RESET}"; }
+
+# Each row: <id>\t<label>  <description>  (fzf hides the id field).
+ROWS=$(printf '%s\n' \
+    "user	${BOLD}User memory${RESET}\t${DIM}Saved in ~/.claude/CLAUDE.md  ($(state "$USER_MEM"))${RESET}" \
+    "project	${BOLD}Project memory${RESET}\t${DIM}Checked in at ./CLAUDE.md  ($(state "$PROJECT_MEM"))${RESET}" \
+    "folder	${BOLD}Open auto-memory folder${RESET}\t${DIM}~/.claude${RESET}")
+
+CHOICE=$(printf '%b\n' "$ROWS" \
+    | column -t -s $'\t' \
+    | fzf --ansi \
+          --prompt='memory> ' \
+          --header=$'\n  '"${TEAL}Auto-memory: on${RESET}"$'\n' \
+          --header-first \
+          --layout=reverse \
+          --height='~40%' \
+          --no-sort \
+          --with-nth=2.. \
+          --bind='ctrl-j:down,ctrl-k:up,tab:accept' \
+    ) || exit 0
+
+ID=${CHOICE%%[[:space:]]*}
+
+ensure_file() {
+    local f=$1 scope=$2
+    if [[ ! -e "$f" ]]; then
+        mkdir -p "$(dirname "$f")"
+        printf '# %s memory (CLAUDE.md)\n\n' "$scope" > "$f"
+    fi
+}
+
+case "$ID" in
+    user)
+        ensure_file "$USER_MEM" "User"
+        exec "$EDITOR" "$USER_MEM"
+        ;;
+    project)
+        ensure_file "$PROJECT_MEM" "Project"
+        exec "$EDITOR" "$PROJECT_MEM"
+        ;;
+    folder)
+        mkdir -p "$MEM_DIR"
+        exec "$EDITOR" "$MEM_DIR"
+        ;;
+    *)
+        exit 0
+        ;;
+esac

@@ -97,6 +97,9 @@
             tailscale # mesh VPN — remote access between machines
             sshm # SSH bookmark manager
             assh # SSH proxy/wrapper with advanced config
+
+            # --- cloud ---
+            azure-cli # `az` — Azure CLI (Python-based, cross-platform)
         ])
         ++ lib.optionals pkgs.stdenv.isDarwin [
             # `ip` shim wrapping ifconfig/netstat/route. Partial coverage of the

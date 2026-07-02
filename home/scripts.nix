@@ -97,6 +97,10 @@
       source = ../.local/bin/netbench;
       executable = true;
     };
+    ".local/bin/rom-claude-mem" = {
+      source = ../.local/bin/rom-claude-mem;
+      executable = true;
+    };
     ".local/bin/messaging-stack" = {
       source = ../.local/bin/messaging-stack;
       executable = true;

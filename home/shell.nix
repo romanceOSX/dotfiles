@@ -9,6 +9,14 @@
     EDITOR = "nvim";
     VISUAL = "nvim";
     LSCOLORS = "FxGxCxDxFxegedabagacad";
+    # GitHub Copilot CLI: auto-approve all tool/shell/file execution and trust
+    # every folder by default (≈ `--allow-all-tools`, the env-var half of
+    # "yolo"). This is the only allow-all knob exposed as an env var — the CLI
+    # attaches COPILOT_ALLOW_ALL solely to --allow-all-tools, so path/URL
+    # auto-approval (the rest of full `--yolo`) is NOT covered here. Must be the
+    # literal string "true". Removes the per-command confirmation prompt in
+    # every session, including non-interactive `copilot -p` / `ssh host copilot`.
+    COPILOT_ALLOW_ALL = "true";
     # Pastel-rainbow LS_COLORS — same palette as rainbow-prompt / yazi.
     # fi (default file) mirrors eza's `normal` #C8C0C5 so dust — which themes
     # filenames purely via LS_COLORS — matches eza/yazi for both files and dirs.
@@ -129,6 +137,12 @@
       c = "claude";
       ca = "claude agents";
       cop = "npx @githubnext/github-copilot-cli";
+      # Full allow-all ("yolo") by default: --allow-all = tools + paths + urls.
+      # COPILOT_ALLOW_ALL (env, set above) only covers tools; this alias adds
+      # path/URL auto-approval, which the CLI exposes as flags only (no env var).
+      # zsh doesn't re-expand the alias for the resulting `copilot` word, so this
+      # is not recursive.
+      copilot = "copilot --allow-all";
       pip = "pip3";
       python = "python3";
       "clang++" = "clang++ -std=c++20";

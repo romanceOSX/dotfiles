@@ -1,10 +1,22 @@
 #!/usr/bin/env bash
-# Adds Nix profile paths to sudo's secure_path so that `sudo <nix-pkg>`
-# works without manual PATH forwarding.
+# Prepends Nix profile bin paths to sudo's secure_path so that `sudo <nix-pkg>`
+# resolves Nix-installed tools without manual PATH forwarding. Linux only —
+# macOS sudo has no secure_path by default, so Nix bins are already reachable.
 #
-# All edits go through visudo (writes to a temp file, validates syntax,
-# then atomically replaces /etc/sudoers). Never touches sudoers directly.
+# Writes a self-contained /etc/sudoers.d/nix-path drop-in rather than editing
+# /etc/sudoers in place. sudoers' secure_path is "last definition wins" and the
+# main file's `@includedir /etc/sudoers.d` is processed last, so the drop-in's
+# value takes effect — which means it must carry the FULL path (the existing
+# system dirs, with the Nix dirs prepended so they shadow system tools).
+#
+# Idempotent: it always recomputes from the system secure_path (ignoring its own
+# drop-in), validates with `visudo -cf`, and installs atomically.
 set -euo pipefail
+
+if [ "$(uname)" != "Linux" ]; then
+    echo "fix-sudo-path: Linux only — nothing to do on $(uname)." >&2
+    exit 0
+fi
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "Re-running with sudo..."
@@ -13,31 +25,33 @@ fi
 
 REAL_HOME=$(getent passwd "${SUDO_USER:-$USER}" | cut -d: -f6)
 NIX_PATHS="/nix/var/nix/profiles/default/bin:${REAL_HOME}/.nix-profile/bin"
-SUDOERS="/etc/sudoers"
+DROPIN="/etc/sudoers.d/nix-path"
 
-if grep -q "${REAL_HOME}/.nix-profile/bin" "$SUDOERS"; then
-    echo "Nix paths already present in secure_path. Nothing to do."
+# Discover the current system secure_path, ignoring our own drop-in so re-runs
+# don't compound the Nix entries. Fall back to a sane default if none is set.
+mapfile -t SRC < <(find /etc/sudoers.d -maxdepth 1 -type f ! -name nix-path 2>/dev/null)
+CURRENT=$(grep -hE '^[[:space:]]*Defaults.*secure_path' /etc/sudoers "${SRC[@]}" 2>/dev/null \
+    | tail -n1 \
+    | sed -E 's/.*secure_path[[:space:]]*=[[:space:]]*"?([^"]*)"?.*/\1/')
+[ -n "$CURRENT" ] || CURRENT="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+NEWPATH="${NIX_PATHS}:${CURRENT}"
+DESIRED="Defaults secure_path=\"${NEWPATH}\""
+
+if [ -f "$DROPIN" ] && [ "$(cat "$DROPIN")" = "$DESIRED" ]; then
+    echo "Nix paths already in sudo's secure_path (${DROPIN}). Nothing to do."
     exit 0
 fi
 
-# Build the new sudoers content in a temp file
 TMPFILE=$(mktemp)
 trap 'rm -f "$TMPFILE"' EXIT
+printf '%s\n' "$DESIRED" > "$TMPFILE"
 
-if grep -q '^Defaults.*secure_path' "$SUDOERS"; then
-    # Append Nix paths to the existing secure_path line
-    sed "s|\(Defaults.*secure_path=\"[^\"]*\)\"|\1:${NIX_PATHS}\"|" "$SUDOERS" > "$TMPFILE"
+if visudo -cf "$TMPFILE" >/dev/null 2>&1; then
+    install -m 0440 -o root -g root "$TMPFILE" "$DROPIN"
+    echo "Done — wrote ${DROPIN}:"
+    echo "  secure_path=\"${NEWPATH}\""
 else
-    # No secure_path exists — add one with standard + Nix paths
-    cp "$SUDOERS" "$TMPFILE"
-    echo "Defaults secure_path=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${NIX_PATHS}\"" >> "$TMPFILE"
-fi
-
-# Validate and install atomically via visudo
-if visudo -c -f "$TMPFILE" >/dev/null 2>&1; then
-    cp "$TMPFILE" "$SUDOERS"
-    echo "Done — Nix paths added to secure_path."
-else
-    echo "ERROR: generated sudoers failed syntax check. No changes made."
+    echo "ERROR: generated sudoers failed syntax check. No changes made." >&2
     exit 1
 fi
