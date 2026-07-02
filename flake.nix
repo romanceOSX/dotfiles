@@ -74,6 +74,15 @@
             # default, so the OpenRGB wrappers never land on machines without
             # that hardware. See home/alien.nix.
             inherit isAlien;
+            # WingTask cloud sync (Taskwarrior) — read straight off `local` (not
+            # threaded through mkHome's params) so ANY host can opt in just by
+            # adding these three fields to its own local.nix, regardless of
+            # whether that host's homeConfiguration entry below uses `local` for
+            # its identity. null on hosts that don't set them — see
+            # home/taskwarrior.nix.
+            wingtaskServerUrl = local.wingtaskServerUrl or null;
+            wingtaskClientId = local.wingtaskClientId or null;
+            wingtaskEncryptionSecret = local.wingtaskEncryptionSecret or null;
           };
           modules = [
             ./home
@@ -108,8 +117,7 @@
         };
 
         # work machine (bare Linux, inside a VPN) — uses local.nix identity.
-        # Not WSL, so Syncthing runs via nix; pair it into the task-sync mesh
-        # by adding its `syncthing --device-id` to syncthingDevices.
+        # Add the wingtask* fields to its local.nix to join the task-sync mesh.
         "work" = mkHome {
           system = "x86_64-linux";
           inherit (local) username homeDirectory;

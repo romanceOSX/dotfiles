@@ -1,50 +1,34 @@
-{ pkgs, lib, config, isWSL ? false, ... }:
+{ pkgs, lib, config, wingtaskServerUrl ? null, wingtaskClientId ? null
+, wingtaskEncryptionSecret ? null, ... }:
 let
   # Taskwarrior 3.x keeps everything in a single SQLite db (taskchampion.sqlite3)
   # under dataLocation — NOT the flat *.data files of TW 2.x.
   taskDir = config.programs.taskwarrior.dataLocation;
   # TW3 reads hooks from <data.location>/hooks, NOT ~/.config/task/hooks.
   hookDir = "${taskDir}/hooks";
-  # Option A — TaskChampion *local* sync: `task sync` reconciles the local db
-  # against an on-disk operation-log server (its own sqlite). This dir — NOT the
-  # live db — is what Syncthing replicates across machines. A stale copy just
-  # re-merges on the next sync, so you don't lose tasks the way a raw-db file
-  # conflict would. No external service, no cloud, no encryption secret required.
-  syncDir = "${config.xdg.dataHome}/task-sync";
 
-  # Public Syncthing Device IDs of every machine in your sync mesh. These are
-  # PUBLIC and safe to commit — the only secret is each machine's key.pem, which
-  # stays machine-local and is NEVER in this repo. The SAME list runs on every
-  # machine: each treats the others as peers (and ignores its own entry), so a
-  # machine that pulls this config already knows who its peers are.
-  #
-  # To add a machine: run `syncthing --device-id` on it, add it below, then push
-  # + pull + `home-manager switch` everywhere. Placeholders are commented because
-  # an invalid id would break Syncthing's config. See docs/taskwarrior.md.
-  syncthingDevices = {
-    osx-mac.id = "3BEN5LQ-MRXHMAL-764ULF7-R3B2GXO-5SSUXVX-IGBFP7Q-2IBCZZO-3DGDLAY";
-
-    # windows-host = {
-    #   id = "XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX";
-    #   introducer = true; # always-on hub: auto-introduces new peers to the rest
-    # };
-    # work.id = "XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX-XXXXXXX";
-  };
+  # WingTask cloud sync (Option B — see docs/taskwarrior.md). serverUrl +
+  # clientId come from your WingTask account; encryptionSecret is a value you
+  # generate yourself. All three live in local.nix (gitignored, per-machine)
+  # and must be IDENTICAL on every machine sharing this task database.
+  # `null` on any host that hasn't configured them (e.g. a fresh clone before
+  # signup, or a host deliberately left out of the sync mesh).
+  wingtaskConfigured = wingtaskServerUrl != null && wingtaskClientId != null;
 in
 {
   # ===========================================================================
   # Terminal TODO workflow (experimental) — Taskwarrior + TUI + Timewarrior +
-  # taskopen, synced across Mac/WSL with TaskChampion local sync over Syncthing.
+  # taskopen, synced via WingTask cloud (TaskChampion protocol) so the same
+  # tasks are reachable from the WingTask web/PWA client, not just this repo's
+  # machines.
   #
   #   task / taskwarrior-tui   task manager + TUI frontend
   #   timewarrior              time tracking, wired via the on-modify hook
   #   taskopen                 open URLs/files annotated on a task
   #
-  # WSL note: per the chosen architecture Syncthing runs on the *Windows host*
-  # (not inside WSL). On WSL, point the sync dir at the Windows-synced folder by
-  # symlinking ~/.local/share/task-sync -> /mnt/c/Users/<you>/task-sync. Only
-  # macOS runs the Syncthing service here. The local db (dataLocation) is NOT
-  # synced and stays per-machine.
+  # Previously used a serverless Syncthing-replicated local sync dir (no
+  # external service) — see git history at commit 01edd671 if you want to
+  # revert to that instead.
   # ===========================================================================
 
   programs.taskwarrior = {
@@ -58,6 +42,19 @@ in
     config = {
       confirmation = false; # don't prompt on bulk edits — the TUI is the safety net
       news.version = "3.4.2"; # silence the "new in this version" nag
+    }
+    # WingTask cloud sync — see docs/taskwarrior.md. Flat quoted keys (not
+    # nested `sync.server = { ... }`) for the same reason as the color.* keys
+    # above: sync.server.url/client_id and sync.encryption_secret would
+    # otherwise need deep-merging across these two optionalAttrs calls.
+    // lib.optionalAttrs wingtaskConfigured {
+      "sync.server.url" = wingtaskServerUrl;
+      "sync.server.client_id" = wingtaskClientId;
+    }
+    // lib.optionalAttrs (wingtaskEncryptionSecret != null) {
+      "sync.encryption_secret" = wingtaskEncryptionSecret;
+    }
+    // {
 
       # --- Muted pastel-rainbow theme -----------------------------------------
       # Same palette as the rest of the terminal (prompt / eza / btop / delta),
@@ -107,11 +104,6 @@ in
       "color.summary.background" = "on color236";
       "color.undo.before" = "color175";
       "color.undo.after" = "color108";
-      # Option A: local, serverless sync target (replicated by Syncthing).
-      sync.local.server_dir = syncDir;
-      # Optional hardening: to encrypt the synced op-log at rest, set the SAME
-      # secret on every machine (keep it out of git — e.g. in local.nix):
-      #   sync.encryption_secret = "<shared-secret>";
       # Recurring tasks: if you use them, set recurrence=on on your PRIMARY
       # machine and recurrence=off on the others to avoid duplicates on sync.
     };
@@ -172,7 +164,7 @@ in
       executable = true;
       text = ''
         #!/bin/sh
-        # Taskwarrior on-exit hook — auto local-sync on change (Option A).
+        # Taskwarrior on-exit hook — auto-push to WingTask on change.
         feed=$(cat)
         [ -z "$feed" ] && exit 0                       # nothing changed (read-only)
         case " $* " in *" command:sync "*) exit 0 ;; esac  # don't recurse
@@ -191,28 +183,39 @@ in
   };
 
   # ---------------------------------------------------------------------------
-  # Syncthing — runs on macOS and bare Linux, but NOT under WSL (there the
-  # Windows host runs Syncthing and WSL just symlinks into the synced folder).
+  # Periodic pull sync — the on-exit hook above already pushes local changes to
+  # WingTask immediately, but nothing local triggers a PULL when a task is
+  # added/edited from the WingTask web UI or phone PWA. This timer runs
+  # `task sync` every 10 minutes so those changes show up here without a
+  # manual `tsync`. Only active once WingTask is actually configured.
   #
-  # Replicates the local-sync op-log dir (NOT the live db). `versioning` keeps
-  # the last 10 copies as an extra safety net. Peers come from syncthingDevices
-  # above; accept/inspect the folder from the GUI (http://127.0.0.1:8384).
+  # WSL note: systemd --user requires `systemd=true` in /etc/wsl.conf; without
+  # it this timer silently won't run — fall back to manual `tsync` there.
   # ---------------------------------------------------------------------------
-  services.syncthing = lib.mkIf (pkgs.stdenv.isDarwin || (pkgs.stdenv.isLinux && !isWSL)) {
+  systemd.user.services.task-sync = lib.mkIf (wingtaskConfigured && pkgs.stdenv.isLinux) {
+    Unit.Description = "Taskwarrior sync with WingTask";
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.taskwarrior3}/bin/task sync";
+    };
+  };
+
+  systemd.user.timers.task-sync = lib.mkIf (wingtaskConfigured && pkgs.stdenv.isLinux) {
+    Unit.Description = "Periodic Taskwarrior sync with WingTask";
+    Timer = {
+      OnStartupSec = "2m";
+      OnUnitActiveSec = "10m";
+    };
+    Install.WantedBy = [ "timers.target" ];
+  };
+
+  launchd.agents.task-sync = lib.mkIf (wingtaskConfigured && pkgs.stdenv.isDarwin) {
     enable = true;
-    # overrideDevices/overrideFolders default to true, so this declared set is
-    # the source of truth — devices/folders added via the GUI get reverted on
-    # activation. Keep all machines in syncthingDevices above.
-    settings = {
-      devices = syncthingDevices;
-      folders."taskwarrior-sync" = {
-        path = syncDir;
-        devices = builtins.attrNames syncthingDevices; # share with every declared peer
-        versioning = {
-          type = "simple";
-          params.keep = "10";
-        };
-      };
+    config = {
+      ProgramArguments = [ "${pkgs.taskwarrior3}/bin/task" "sync" ];
+      StartInterval = 600; # 10 minutes
+      StandardOutPath = "/tmp/task-sync.log";
+      StandardErrorPath = "/tmp/task-sync.log";
     };
   };
 }
