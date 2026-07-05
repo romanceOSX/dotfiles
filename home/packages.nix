@@ -87,6 +87,7 @@
 
             just # command runner (Makefile alternative)
             tokscale # token usage tracker for agentic coding tools (Claude Code, etc.)
+            opencode # Google opencode coding assistant
             phoronix-test-suite # open-source automated benchmarking suite
 
             # --- networking ---

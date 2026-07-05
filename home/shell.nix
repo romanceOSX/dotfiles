@@ -137,6 +137,7 @@
       c = "claude";
       ca = "claude agents";
       cop = "npx @githubnext/github-copilot-cli";
+      agy = "agy --dangerously-skip-permissions";
       # Full allow-all ("yolo") by default: --allow-all = tools + paths + urls.
       # COPILOT_ALLOW_ALL (env, set above) only covers tools; this alias adds
       # path/URL auto-approval, which the CLI exposes as flags only (no env var).
@@ -188,6 +189,8 @@
       typeset -U path
       path=( "$HOME/.nix-profile/bin" /nix/var/nix/profiles/default/bin /run/current-system/sw/bin $path )
       export PATH
+      
+      export PATH=/Users/romance/.opencode/bin:$PATH
 '' + ''
       # --- eza pastel-rainbow theme ---
       # eza reads theme.yml (deployed by programs.nix) from EZA_CONFIG_DIR; this
