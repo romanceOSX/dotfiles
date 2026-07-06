@@ -18,3 +18,4 @@ home/tmux-sessionizer.toml
 # logs, sockets, and session state it drops alongside it.
 home/herdr/*
 !home/herdr/config.toml
+hledger/journal_path.conf

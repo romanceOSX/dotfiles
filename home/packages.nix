@@ -90,6 +90,11 @@
             opencode # Google opencode coding assistant
             phoronix-test-suite # open-source automated benchmarking suite
 
+            # --- accounting ---
+            hledger
+            hledger-ui
+            hledger-web
+
             # --- networking ---
             nmap # port scanner
             curl # HTTP client

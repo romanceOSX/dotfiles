@@ -187,6 +187,10 @@
   xdg.configFile."ghostty/config".source =
     config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/dotfiles/home/ghostty/config";
 
+  # hledger — out-of-store symlink for dynamic journal path configuration
+  xdg.configFile."hledger/journal_path.conf".source =
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/dotfiles/hledger/journal_path.conf";
+
   # ghostty terminfo — SSHing *out* of Ghostty propagates TERM=xterm-ghostty,
   # which non-Ghostty hosts (alien, pi, any embedded box) have never heard of;
   # ncurses then falls back to a dumb profile and ^L/clear corrupts the display.

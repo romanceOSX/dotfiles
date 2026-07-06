@@ -146,6 +146,7 @@
       copilot = "copilot --allow-all";
       pip = "pip3";
       python = "python3";
+      spend = "hledger -f \"$(< ~/.config/hledger/journal_path.conf)\" add";
       "clang++" = "clang++ -std=c++20";
       vim = "nvim"; # neovim is installed as a plain package (see packages.nix)
       vi = "nvim";
@@ -199,6 +200,11 @@
       # panes that inherit a frozen server env from before the var existed.
       # Without it eza falls back to harsh default ANSI colours.
       export EZA_CONFIG_DIR="${config.xdg.configHome}/eza"
+
+      # --- hledger dynamic journal path ---
+      if [[ -f ~/.config/hledger/journal_path.conf ]]; then
+          export LEDGER_FILE="$(< ~/.config/hledger/journal_path.conf)"
+      fi
 
       # --- prompt cosmetics (from .zshrc) ---
       PROMPT_SP=""
