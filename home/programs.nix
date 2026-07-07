@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, isWSL ? false, ... }:
 {
   # ---------------------------------------------------------------------------
   # lazygit — pastel-rainbow theme
@@ -204,6 +204,12 @@
       tic -x -o "$out" ${./ghostty/xterm-ghostty.terminfo}
     '';
 
+  # Symlink Tailscale SSH config only on non-WSL machines
+  # Using mkOutOfStoreSymlink allows editing the file without running a flake rebuild.
+  home.file.".ssh/config.tailscale" = lib.mkIf (!isWSL) {
+    source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/dotfiles/home/ssh_tailscale.conf";
+  };
+
   # ---------------------------------------------------------------------------
   # ssh — Home Manager manages ~/.ssh/config so it always has 600 permissions.
   # Prevents 'Bad owner or permissions on ~/.ssh/config' (manually-created
@@ -220,6 +226,7 @@
     # into a side-file on Darwin; Include that too.
     extraConfig = ''
       Include ~/.ssh/config.local
+      Include ~/.ssh/config.tailscale
     '' + lib.optionalString pkgs.stdenv.isDarwin ''
       Include ~/.config/colima/ssh_config
     '';
@@ -229,14 +236,6 @@
         Hostname = "github.com";
         IdentityFile = "~/.ssh/id_ed25519";
         AddKeysToAgent = "yes";
-      };
-      "pi" = {
-        Hostname = "100.88.214.84";
-        User = "romance";
-      };
-      "alien" = {
-        Hostname = "100.104.20.52";
-        User = "romance";
       };
     };
   };
