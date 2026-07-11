@@ -153,9 +153,11 @@ world-readable Nix store:
 
 > **Rotate if migrating from the old scheme.** Before this migration the
 > secrets lived in `local.nix`; if that file was ever committed, the value is
-> in git history and should be rotated: generate a fresh `encryption_secret`,
-> `sops secrets.yaml` it in on every host, `home-manager switch`, then re-sync
-> the mesh (`task sync` on each machine).
+> in git history and should be rotated. Full step-by-step runbook:
+> [`docs/wingtask-key-rotation.md`](./wingtask-key-rotation.md). Note the
+> gotcha: WingTask only accepts account-registered `client_id`s, so a new
+> secret needs a fresh/empty bucket (reset the client's data, or register a new
+> client, in the WingTask UI) before it can seed.
 
 ### Caveats
 
