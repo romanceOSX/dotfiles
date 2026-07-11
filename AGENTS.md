@@ -34,6 +34,22 @@ See `README.md` for full setup and migration details.
   into `/nix/store`** — never edit them in place. Edit the source here, then
   re-activate.
 
+## Architecture (hosts, profiles, secrets)
+
+- **Profiles** compose hosts. `home/profiles/base.nix` is the universal role
+  (shell, packages, programs, tmux, scripts); `home/profiles/personal.nix` =
+  base + personal-only modules (taskwarrior/secrets, messaging, herdr, alien).
+  `mkHome` in `flake.nix` picks a `profile` and optional `extraModules` per
+  host — don't wire host-specific `imports` into the leaf modules.
+- **Secrets** use **sops-nix**. Encrypted values live in `secrets.yaml`
+  (committed), decrypted at activation via each host's SSH ed25519 key (see
+  `.sops.yaml` recipients and `home/secrets.nix`). Edit with `sops secrets.yaml`;
+  add a host with `ssh-to-age < ~/.ssh/id_ed25519.pub` → `.sops.yaml` →
+  `sops updatekeys secrets.yaml`. Never put a real secret in `local.nix`.
+- **Work config is private.** Internal hostnames/usernames/Dev Tunnel ids live
+  in the separate private `work-dotfiles` flake input, layered onto the `osx`
+  and `work` hosts only. Keep work metadata out of this public repo.
+
 ## Making changes
 
 - Every time we edit `home/*.nix` module or a referenced config file, then run:

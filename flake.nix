@@ -23,10 +23,25 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     herdr.url = "github:ogulcancelik/herdr";
+    # sops-nix — secrets management. Secrets live encrypted in ./secrets.yaml
+    # (committed) and are decrypted at activation with the host's SSH ed25519
+    # key (see home/secrets.nix and .sops.yaml). Follows the same nixpkgs so the
+    # sops/age tooling matches the rest of the system.
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    # Private work configuration — internal hostnames, usernames, and Dev Tunnel
+    # ids that must not leak into this public repo. Only the osx + work hosts
+    # reference its module (see extraModules below), so the personal hosts (wsl,
+    # debian, alien, pi) still evaluate without access to this private repo.
+    # It exports a pure Home Manager module and has no nixpkgs input of its own.
+    work-dotfiles.url = "git+ssh://git@github.com/romanceOSX/work-dotfiles.git";
   };
 
   outputs =
-    { nixpkgs, nixpkgs-neovim, home-manager, nix-darwin, herdr, ... }:
+    { nixpkgs, nixpkgs-neovim, home-manager, nix-darwin, herdr, sops-nix
+    , work-dotfiles, ... }:
     let
       # Machine-local identity — each host defines local.nix once (gitignored).
       # Sensible personal defaults are merged with (and overridden by) local.nix,
@@ -46,8 +61,15 @@
       #   homeDirectory  — absolute path to $HOME on that machine
       #   isWSL          — true under WSL (Syncthing then runs on the Windows host,
       #                    not via nix). Defaults to false (bare Linux / macOS).
+      #   profile        — the composed role for this host (a module path under
+      #                    ./home/profiles). Defaults to the personal profile;
+      #                    override per host to build a leaner or work role.
+      #   extraModules   — additional Home Manager modules layered on top of the
+      #                    profile (e.g. the private work module for the work host).
       mkHome =
-        { system, username, homeDirectory, isWSL ? false, isAlien ? false, includeHerdr ? true }:
+        { system, username, homeDirectory, isWSL ? false, isAlien ? false
+        , includeHerdr ? true, profile ? ./home/profiles/personal.nix
+        , extraModules ? [ ] }:
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
             inherit system;
@@ -74,23 +96,23 @@
             # default, so the OpenRGB wrappers never land on machines without
             # that hardware. See home/alien.nix.
             inherit isAlien;
-            # WingTask cloud sync (Taskwarrior) — read straight off `local` (not
-            # threaded through mkHome's params) so ANY host can opt in just by
-            # adding these three fields to its own local.nix, regardless of
-            # whether that host's homeConfiguration entry below uses `local` for
-            # its identity. null on hosts that don't set them — see
-            # home/taskwarrior.nix.
+            # WingTask cloud sync (Taskwarrior) — only the non-secret server URL
+            # is read off `local` here; it doubles as the per-host "sync on?"
+            # gate. The sensitive client_id + encryption_secret now live
+            # encrypted in ./secrets.yaml and are decrypted at activation by
+            # sops-nix (see home/secrets.nix), so ANY host opts in just by
+            # setting wingtaskServerUrl in its local.nix. null → left out of the
+            # mesh. See home/taskwarrior.nix.
             wingtaskServerUrl = local.wingtaskServerUrl or null;
-            wingtaskClientId = local.wingtaskClientId or null;
-            wingtaskEncryptionSecret = local.wingtaskEncryptionSecret or null;
           };
           modules = [
-            ./home
+            sops-nix.homeManagerModules.sops
+            profile
             {
               home.username = username;
               home.homeDirectory = homeDirectory;
             }
-          ];
+          ] ++ extraModules;
         };
     in
     {
@@ -101,6 +123,10 @@
           system = "aarch64-darwin";
           username = "romance";
           homeDirectory = "/Users/romance";
+          # The Mac is the Dev Tunnel client for the work boxes, so it pulls in
+          # the private work SSH hosts (axxis-*). Requires access to the private
+          # work-dotfiles repo to build.
+          extraModules = [ work-dotfiles.homeModules.default ];
         };
 
         # WSL (Ubuntu/Debian under Windows) — uses local.nix identity
@@ -117,10 +143,12 @@
         };
 
         # work machine (bare Linux, inside a VPN) — uses local.nix identity.
-        # Add the wingtask* fields to its local.nix to join the task-sync mesh.
+        # Set wingtaskServerUrl in its local.nix to join the task-sync mesh
+        # (the encrypted creds come from sops — see home/secrets.nix).
         "work" = mkHome {
           system = "x86_64-linux";
           inherit (local) username homeDirectory;
+          extraModules = [ work-dotfiles.homeModules.default ];
         };
 
         # Build server (bare-metal Ubuntu, x86_64, Intel i7-8750H 6c/12t, 14 GB).

@@ -44,7 +44,10 @@
   # ~/.local/bin (scripts) + TeX on macOS. scripts.nix also adds ~/.local/bin,
   # but listing it here keeps the intent local to env config.
   home.sessionPath =
-    [ "${config.home.homeDirectory}/.local/bin" ]
+    [
+      "${config.home.homeDirectory}/bin"
+      "${config.home.homeDirectory}/.local/bin"
+    ]
     ++ lib.optionals pkgs.stdenv.isDarwin [ "/Library/TeX/texbin" ];
 
   # ---------------------------------------------------------------------------

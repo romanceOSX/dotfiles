@@ -1,5 +1,4 @@
-{ pkgs, lib, config, wingtaskServerUrl ? null, wingtaskClientId ? null
-, wingtaskEncryptionSecret ? null, ... }:
+{ pkgs, lib, config, wingtaskServerUrl ? null, ... }:
 let
   # Taskwarrior 3.x keeps everything in a single SQLite db (taskchampion.sqlite3)
   # under dataLocation — NOT the flat *.data files of TW 2.x.
@@ -7,13 +6,13 @@ let
   # TW3 reads hooks from <data.location>/hooks, NOT ~/.config/task/hooks.
   hookDir = "${taskDir}/hooks";
 
-  # WingTask cloud sync (Option B — see docs/taskwarrior.md). serverUrl +
-  # clientId come from your WingTask account; encryptionSecret is a value you
-  # generate yourself. All three live in local.nix (gitignored, per-machine)
-  # and must be IDENTICAL on every machine sharing this task database.
-  # `null` on any host that hasn't configured them (e.g. a fresh clone before
-  # signup, or a host deliberately left out of the sync mesh).
-  wingtaskConfigured = wingtaskServerUrl != null && wingtaskClientId != null;
+  # WingTask cloud sync (Option B — see docs/taskwarrior.md). The (non-secret)
+  # server URL comes from local.nix and gates sync on this host; the sensitive
+  # client_id + encryption_secret are decrypted from sops (see home/secrets.nix)
+  # and injected into taskrc via the sops-rendered `include` below — they never
+  # appear in the generated, world-readable taskrc. `null` on any host left out
+  # of the sync mesh.
+  wingtaskConfigured = wingtaskServerUrl != null;
 in
 {
   # ===========================================================================
@@ -42,17 +41,6 @@ in
     config = {
       confirmation = false; # don't prompt on bulk edits — the TUI is the safety net
       news.version = "3.4.2"; # silence the "new in this version" nag
-    }
-    # WingTask cloud sync — see docs/taskwarrior.md. Flat quoted keys (not
-    # nested `sync.server = { ... }`) for the same reason as the color.* keys
-    # above: sync.server.url/client_id and sync.encryption_secret would
-    # otherwise need deep-merging across these two optionalAttrs calls.
-    // lib.optionalAttrs wingtaskConfigured {
-      "sync.server.url" = wingtaskServerUrl;
-      "sync.server.client_id" = wingtaskClientId;
-    }
-    // lib.optionalAttrs (wingtaskEncryptionSecret != null) {
-      "sync.encryption_secret" = wingtaskEncryptionSecret;
     }
     // {
 
@@ -107,6 +95,14 @@ in
       # Recurring tasks: if you use them, set recurrence=on on your PRIMARY
       # machine and recurrence=off on the others to avoid duplicates on sync.
     };
+
+    # Pull the WingTask sync credentials (sync.server.url / client_id /
+    # encryption_secret) in from the sops-rendered, 0400 file rather than
+    # writing them into the generated taskrc. The template is only defined when
+    # sync is configured (see home/secrets.nix), so guard the reference too.
+    extraConfig = lib.optionalString wingtaskConfigured ''
+      include ${config.sops.templates."taskrc-sync".path}
+    '';
   };
 
   home.packages = with pkgs; [

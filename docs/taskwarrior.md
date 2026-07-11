@@ -50,28 +50,39 @@ browser, not just machines that clone this repo. (Previously used a serverless
 Syncthing-replicated local sync dir with no external service — see git history
 at commit `01edd671` if you want to revert to that instead.)
 
+The `client_id` + `encryption_secret` are now stored **encrypted** in
+`secrets.yaml` (sops-nix) and decrypted at activation with each host's SSH key
+— so they're shared across the mesh by decrypting the same ciphertext, not by
+hand-copying values into every `local.nix`. Only the non-secret `serverUrl`
+lives in `local.nix`, where it doubles as the per-host "sync on?" gate.
+
 **One-time setup, per machine you want in the sync mesh:**
 
 1. Sign up at <https://app.wingtask.com> and get your sync endpoint
    (`serverUrl`) and `clientId` from the account/sync settings.
 2. Generate a shared encryption secret **once**: `openssl rand -base64 32`.
-3. Add all three to `local.nix` on that machine (kept out of git deliberately —
-   never commit real credentials):
+3. Put the two secrets into the encrypted store (only needed the first time, or
+   when they change — the ciphertext is committed and shared by all hosts):
+   ```sh
+   sops secrets.yaml     # edit wingtask_client_id + wingtask_encryption_secret
+   ```
+   For a **new host** to be able to decrypt, add its age recipient to
+   `.sops.yaml` and run `sops updatekeys secrets.yaml`. When the recipient is
+   derived from an SSH ed25519 key (the default here), that's:
+   ```sh
+   ssh-to-age < ~/.ssh/id_ed25519.pub   # → age1... recipient for .sops.yaml
+   ```
+4. Set the (non-secret) endpoint in that host's `local.nix`:
    ```nix
    wingtaskServerUrl = "https://<your-wingtask-sync-endpoint>";
-   wingtaskClientId = "<uuid-from-wingtask>";
-   wingtaskEncryptionSecret = "<the-secret-from-step-2>";
    ```
-   `clientId` and `encryptionSecret` **must be identical** on every machine
-   sharing this task database — `clientId` identifies the shared task database
-   itself, not the individual machine.
-4. `home-manager switch --flake .#<host>`, then run `task sync` once (there is
+5. `home-manager switch --flake .#<host>`, then run `task sync` once (there is
    no separate "init" step — `sync init` is not a real subcommand in TW3's
    native TaskChampion protocol, despite older WingTask docs mentioning it for
    their legacy taskd setup).
 
-Hosts that don't set these three fields simply get no sync configured — this
-is all opt-in per machine.
+Hosts that don't set `wingtaskServerUrl` simply get no sync configured (and no
+sops secrets are even requested there) — this is all opt-in per machine.
 
 **If this machine already has real task history** (e.g. it was previously in
 the Syncthing/local-sync mesh — this applies to `osx`, which was), the first
@@ -125,25 +136,26 @@ then delete the `.pre-wingtask-migration` file and the backup dir once happy.
 
 ### Where the credentials end up
 
-`wingtaskClientId` and `wingtaskEncryptionSecret` identify and decrypt your
-task data, so it's worth knowing exactly where they land on a given machine:
+The `client_id` + `encryption_secret` identify and decrypt your task data.
+Since the migration to sops-nix they no longer touch plaintext config or the
+world-readable Nix store:
 
-1. **`local.nix`** (repo root) — plaintext. Deliberately *not* gitignored (so
-   the flake can read it) but meant to stay uncommitted: `git add local.nix`
-   is required for the flake to see it (untracked files are invisible to a
-   git-based flake), but **never `git commit` it**.
-2. **`~/.config/task/taskrc`** — the rendered config, `644` (world-readable on
-   that machine). Home Manager regenerates this as a real file (not a store
-   symlink) via the `regenDotTaskRc` activation step, since `task config`
-   needs to write to it directly.
-3. **The Nix store** — the built `hm_...taskrc` derivation is `444 root:root`,
-   which is **world-readable by Nix design** (any local user on the machine
-   can read store paths) and **persists even after you delete/change
-   `local.nix`**, until garbage collected (`nix-collect-garbage`). This is a
-   general property of secrets passed through `home.file`/`programs.*.config`
-   in Nix, not specific to this setup — if that's ever a real concern (e.g. a
-   genuinely multi-user machine), look at `sops-nix` or `agenix` instead of
-   plain `local.nix`.
+1. **`secrets.yaml`** (repo root) — the two values, **encrypted** to the SSH
+   ed25519 key(s) listed in `.sops.yaml`. Safe to commit. Edit with
+   `sops secrets.yaml`; see `home/secrets.nix` for the wiring.
+2. **`~/.config/sops-nix/secrets/rendered/taskrc-sync`** — decrypted at
+   activation to a **`0400`** (owner-only) file by the sops-nix launchd/systemd
+   agent. `taskrc` pulls it in with an `include`, so the secret never lands in
+   the generated, world-readable taskrc or in the Nix store.
+3. **`~/.config/task/taskrc`** (`644`) and the store-built `home-manager-taskrc`
+   now contain only the `include` line and non-secret settings — no secret.
+4. **`local.nix`** holds just the non-secret `wingtaskServerUrl`.
+
+> **Rotate if migrating from the old scheme.** Before this migration the
+> secrets lived in `local.nix`; if that file was ever committed, the value is
+> in git history and should be rotated: generate a fresh `encryption_secret`,
+> `sops secrets.yaml` it in on every host, `home-manager switch`, then re-sync
+> the mesh (`task sync` on each machine).
 
 ### Caveats
 

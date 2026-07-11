@@ -1,0 +1,20 @@
+# SOPS creation rules. `romance` is the age recipient derived from my SSH
+# ed25519 public key (~/.ssh/id_ed25519.pub) via `ssh-to-age`; the matching
+# private key on each host decrypts secrets.yaml at activation (see
+# home/secrets.nix). To rotate/extend: add recipients here, then re-encrypt
+# with `sops updatekeys secrets.yaml`.
+# One recipient per host, keyed to that host's SSH ed25519 key (via ssh-to-age).
+# Add a host: append its recipient here, then `sops updatekeys secrets.yaml`.
+keys:
+  - &osx age1qq74ulfu724mzspex359uexefrpwsmnedqezjcathr5s8z0wqp9qcklgjj
+  - &alien age1aak30kxkpskfq2yz3jg9dxjr2gpkck938h45p8a272kecdshu43sscp83g
+  - &pi age15agflxgxgnyajtrvl3repwsmjnz0wryq2a4pmtc2p2g56mtdhsrqtflnpv
+  - &remote_left age1rmema2hp240lhpsftvpffndyxftzql70qxmtdklvkuzfzyf4dapqc4kcyj
+creation_rules:
+  - path_regex: secrets\.yaml$
+    key_groups:
+      - age:
+          - *osx
+          - *alien
+          - *pi
+          - *remote_left

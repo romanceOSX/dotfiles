@@ -9,12 +9,13 @@
   username = "romance";
   homeDirectory = "/home/romance";
 
-  # WingTask cloud sync (Taskwarrior). Leave unset to skip cloud sync on this
-  # host. Get serverUrl + clientId from your WingTask account after signing up
-  # at https://app.wingtask.com — clientId and encryptionSecret must be set to
-  # the SAME value on every machine you want in the same sync mesh (see
-  # docs/taskwarrior.md).
+  # WingTask cloud sync (Taskwarrior). Set this to your WingTask sync endpoint
+  # to join the task-sync mesh on this host; leave it unset to skip cloud sync.
+  # It doubles as the build-time gate for the sops secrets + sync services.
+  #
+  # The sensitive client_id + encryption_secret are NOT set here anymore — they
+  # live encrypted in ./secrets.yaml (sops-nix) and are decrypted at activation
+  # with this host's SSH key. To manage them: `sops secrets.yaml` (see
+  # .sops.yaml, home/secrets.nix, docs/taskwarrior.md).
   # wingtaskServerUrl = "https://<your-wingtask-sync-endpoint>";
-  # wingtaskClientId = "<uuid-from-wingtask>";     # generate once, reuse everywhere
-  # wingtaskEncryptionSecret = "<shared-secret>";  # e.g. `openssl rand -base64 32`
 }

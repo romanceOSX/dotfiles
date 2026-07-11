@@ -237,6 +237,9 @@
         IdentityFile = "~/.ssh/id_ed25519";
         AddKeysToAgent = "yes";
       };
+      # Work SSH hosts (axxis-*) live in the private work-dotfiles flake input,
+      # layered onto the osx + work hosts only — keeps work usernames + Dev
+      # Tunnel ids out of this public repo. See flake.nix and work-dotfiles.
     };
   };
 

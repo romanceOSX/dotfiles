@@ -105,6 +105,10 @@
       source = ../.local/bin/messaging-stack;
       executable = true;
     };
+    ".local/bin/devtunnel-ssh-proxy" = {
+      source = ../.local/bin/devtunnel-ssh-proxy;
+      executable = true;
+    };
   }
   # WSL-only helpers — keep these off macOS so they don't bloat that config.
   // lib.optionalAttrs isWSL {

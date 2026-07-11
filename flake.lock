@@ -112,7 +112,44 @@
         "home-manager": "home-manager",
         "nix-darwin": "nix-darwin",
         "nixpkgs": "nixpkgs_2",
-        "nixpkgs-neovim": "nixpkgs-neovim"
+        "nixpkgs-neovim": "nixpkgs-neovim",
+        "sops-nix": "sops-nix",
+        "work-dotfiles": "work-dotfiles"
+      }
+    },
+    "sops-nix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1783174389,
+        "narHash": "sha256-aCWC8ngycU7OdJrU2+Je3qf+1a2ykuBvpPhZT/9tXMc=",
+        "owner": "Mic92",
+        "repo": "sops-nix",
+        "rev": "f1406619a3884cd5c47992a70b8b35c9c0fcb4c9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Mic92",
+        "repo": "sops-nix",
+        "type": "github"
+      }
+    },
+    "work-dotfiles": {
+      "locked": {
+        "lastModified": 1783732190,
+        "narHash": "sha256-XhoBYnKJtokoMXU5JT9KyGtBqyU54hto5LYiwEpE51U=",
+        "ref": "refs/heads/master",
+        "rev": "0ef9ad3e4b346d23020abe623cd57c64c19a4c60",
+        "revCount": 2,
+        "type": "git",
+        "url": "ssh://git@github.com/romanceOSX/work-dotfiles.git"
+      },
+      "original": {
+        "type": "git",
+        "url": "ssh://git@github.com/romanceOSX/work-dotfiles.git"
       }
     }
   },
