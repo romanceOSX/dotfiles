@@ -17,5 +17,7 @@
     ../messaging.nix
     ../herdr.nix
     ../alien.nix
+    ../devtunnel.nix
+    ../opencode.nix
   ];
 }
