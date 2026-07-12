@@ -209,6 +209,20 @@
           export LEDGER_FILE="$(< ~/.config/hledger/journal_path.conf)"
       fi
 
+      # --- global machine-local env (API keys, tokens) ---
+      # Sourced live from a plain file OUTSIDE the nix store, so credentials can
+      # be tweaked WITHOUT a home-manager rebuild — edit the file, open a new
+      # shell/pane. Loaded in interactive init (like EZA_CONFIG_DIR above) so
+      # EVERY shell gets it regardless of cwd — tmux panes included, and unlike
+      # direnv it needs no .envrc and applies outside $HOME too. This file lives
+      # in $HOME (not the repo), so it is never tracked or committed.
+      # `set -a` auto-exports bare KEY=value lines; explicit `export` also works.
+      if [[ -f "${config.xdg.configHome}/env" ]]; then
+          set -a
+          source "${config.xdg.configHome}/env"
+          set +a
+      fi
+
       # --- prompt cosmetics (from .zshrc) ---
       PROMPT_SP=""
       unsetopt PROMPT_CR
