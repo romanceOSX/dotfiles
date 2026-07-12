@@ -12,6 +12,7 @@
     ../packages.nix
     ../shell.nix
     ../programs.nix
+    ../direnv.nix
     ../tmux.nix
     ../scripts.nix
   ];

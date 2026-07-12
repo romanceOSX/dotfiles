@@ -55,6 +55,15 @@
         localDefaults
         // (if builtins.pathExists ./local.nix then import ./local.nix else { });
 
+      # Systems this repo is ever activated on. Used only for the dev shell
+      # below — the per-host homeConfigurations pin their own system.
+      forAllSystems = nixpkgs.lib.genAttrs [
+        "aarch64-darwin"
+        "x86_64-darwin"
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+
       # Build a Home Manager configuration for one host.
       #   system        — nix system double (e.g. "x86_64-linux", "aarch64-darwin")
       #   username       — your login name on that machine
@@ -171,6 +180,22 @@
           includeHerdr = false;
         };
       };
+
+      # Dev shell for this repo. Exists mainly so the root .envrc's
+      # `use flake . --impure` resolves (nix-direnv needs a devShells.default);
+      # entering the repo dir then also drops you into a shell with the tools
+      # used to maintain it. References only nixpkgs, so it evaluates on the
+      # personal hosts without access to the private work-dotfiles input.
+      devShells = forAllSystems (system:
+        let pkgs = nixpkgs.legacyPackages.${system};
+        in {
+          default = pkgs.mkShellNoCC {
+            packages = [ pkgs.sops pkgs.age pkgs.ssh-to-age ];
+            shellHook = ''
+              echo "dots devshell — .env loaded via direnv; sops/age available"
+            '';
+          };
+        });
 
       # macOS system layer (Apple Silicon). Standalone Home Manager still owns
       # the user environment via homeConfigurations.osx above; nix-darwin manages

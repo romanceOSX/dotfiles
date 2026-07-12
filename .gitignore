@@ -5,6 +5,12 @@ result
 result-*
 .direnv/
 
+# direnv machine-local secrets — API keys / tokens loaded by .envrc's
+# dotenv_if_exists. NEVER commit this; it holds live credentials. The .envrc
+# router itself IS tracked (it's generic); only the .env payload is ignored.
+.env
+.env.local
+
 # NOTE: local.nix is deliberately NOT ignored. The flake reads ./local.nix from
 # its git source (`.#` is a git+file ref, which excludes git-ignored files), so
 # ignoring it would silently fall back to the romance/ defaults. Keep it staged
