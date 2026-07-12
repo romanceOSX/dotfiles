@@ -185,11 +185,11 @@
   # Out-of-store symlink so edits to the repo file are live without a rebuild
   # (same approach as nvim above); only requires the repo to live at this path.
   xdg.configFile."ghostty/config".source =
-    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/dotfiles/home/ghostty/config";
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/dots/home/ghostty/config";
 
   # hledger — out-of-store symlink for dynamic journal path configuration
   xdg.configFile."hledger/journal_path.conf".source =
-    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/dotfiles/hledger/journal_path.conf";
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/dots/hledger/journal_path.conf";
 
   # ghostty terminfo — SSHing *out* of Ghostty propagates TERM=xterm-ghostty,
   # which non-Ghostty hosts (alien, pi, any embedded box) have never heard of;
@@ -207,7 +207,7 @@
   # Symlink Tailscale SSH config only on non-WSL machines
   # Using mkOutOfStoreSymlink allows editing the file without running a flake rebuild.
   home.file.".ssh/config.tailscale" = lib.mkIf (!isWSL) {
-    source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/dotfiles/home/ssh_tailscale.conf";
+    source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/git/dots/home/ssh_tailscale.conf";
   };
 
   # ---------------------------------------------------------------------------

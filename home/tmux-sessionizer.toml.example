@@ -8,7 +8,7 @@
 #   cp ~/.config/tmux/sessionizer.toml.example ~/.config/tmux/sessionizer.toml
 # then edit that copy. It is read fresh at every <prefix>f keypress, so
 # changes take effect immediately — no home-manager switch, no tmux reload.
-# (Your copy lives outside the dotfiles repo, like local.nix — machine-local.)
+# (Your copy lives outside the dots repo, like local.nix — machine-local.)
 #
 # Each [[entries]] block maps a menu key to one or more root directories,
 # or to an arbitrary command TUI.

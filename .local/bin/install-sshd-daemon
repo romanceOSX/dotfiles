@@ -63,7 +63,7 @@ install_systemd() {
     CONF=/etc/ssh/sshd_config
     if [ ! -f "$CONF" ]; then
         sudo tee "$CONF" >/dev/null <<EOF
-# Managed by install-sshd-daemon (dotfiles). Pubkey-only; see script header.
+# Managed by install-sshd-daemon (dots). Pubkey-only; see script header.
 Port 22
 HostKey /etc/ssh/ssh_host_ed25519_key
 HostKey /etc/ssh/ssh_host_rsa_key

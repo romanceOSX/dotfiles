@@ -21,7 +21,7 @@ gen_tag() {
 }
 
 # Machine-local cache of hosts we've actually connected to from THIS box. It's
-# kept out of the dotfiles repo (under XDG_STATE_HOME) on purpose: the TOML
+# kept out of the dots repo (under XDG_STATE_HOME) on purpose: the TOML
 # [[ssh]] list is shared via git and may advertise hosts another machine can
 # reach but this one can't, whereas this cache only ever grows from real
 # connections here. tmux-ssh-menu unions it into the connections list so a host

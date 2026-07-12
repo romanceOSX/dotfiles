@@ -68,7 +68,7 @@ dry_run="$3"
 nix_init=/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
 [[ -f "$nix_init" ]] && . "$nix_init"
 
-flake="$HOME/git/dotfiles"
+flake="$HOME/git/dots"
 [[ -d "$flake/.git" ]] || { printf 'ERROR: %s is not a git repo\n' "$flake" >&2; exit 1; }
 cd "$flake"
 

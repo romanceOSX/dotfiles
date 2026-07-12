@@ -35,7 +35,7 @@ CONF="$XDG/tmux/sessionizer.toml"
 
 # Machine-local cache of hosts actually connected to from this box (written by
 # tmux-sessionizer on a successful remote connect). Kept under XDG_STATE_HOME,
-# OUTSIDE the dotfiles repo, so it reflects THIS machine's reality rather than
+# OUTSIDE the dots repo, so it reflects THIS machine's reality rather than
 # hosts that were pre-declared on some other machine and shared via the git TOML.
 CACHE="${XDG_STATE_HOME:-$HOME/.local/state}/tmux/ssh-hosts"
 

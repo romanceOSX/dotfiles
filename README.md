@@ -1,4 +1,4 @@
-# dotfiles
+# dots
 
 Config for tmux, zsh, and shell utilities, managed with Nix / Home Manager.
 
@@ -42,13 +42,13 @@ configs as native `programs.*` modules.
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 
 # 2. get the repo
-git clone <repo> ~/git/dotfiles && cd ~/git/dotfiles
+git clone <repo> ~/git/dots && cd ~/git/dots
 
 # 3. activate (pick the host matching the machine; adjust username in flake.nix)
 nix run home-manager/master -- switch --flake .#wsl       # or debian / osx
 
 # subsequent updates
-home-manager switch --flake ~/git/dotfiles#wsl
+home-manager switch --flake ~/git/dots#wsl
 ```
 
 > Edit the `username` / `homeDirectory` in `flake.nix` if your login differs.

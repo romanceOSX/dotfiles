@@ -65,7 +65,7 @@ git push origin master
 home-manager switch --flake .#osx          # this machine
 nix-deploy alien pi                         # tailscale nodes
 # remote-left (its own local.nix identity — don't clobber it):
-ssh axxis-remote-left 'cd ~/git/dotfiles && cp local.nix /tmp/keep && \
+ssh axxis-remote-left 'cd ~/git/dots && cp local.nix /tmp/keep && \
   git fetch origin && rm -f local.nix && git reset --hard origin/master && \
   cp /tmp/keep local.nix && home-manager switch --flake .#wsl -b backup'
 ```

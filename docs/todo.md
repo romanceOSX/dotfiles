@@ -130,7 +130,7 @@ identical — the only difference is how inputs are resolved (pinned lock vs amb
 
 ### What is the difference between `~/.config` home-manager vs flake-managed?
 
-The location (`~/.config/home-manager/` or `~/git/dotfiles/`) is *independent* of whether
+The location (`~/.config/home-manager/` or `~/git/dots/`) is *independent* of whether
 you use flakes. The real distinction is **where the version comes from**:
 
 **Channel-managed** — version comes from `nix-channel`. You `nix-channel --add` a
@@ -145,7 +145,7 @@ Upgrading is explicit: `nix flake update`. You run:
 
 The `~/.config/home-manager/` path is just the conventional location Home Manager looks
 for config when invoked without arguments. You can put a `flake.nix` there and it would
-still be flake-managed. This repo keeps it in `~/git/dotfiles/` and always passes
+still be flake-managed. This repo keeps it in `~/git/dots/` and always passes
 `--flake .` explicitly.
 
 **Summary**: channel-managed = version determined by machine state (mutable, can drift);
