@@ -17,5 +17,14 @@
     enableZshIntegration = true;
     enableBashIntegration = true;
     enableFishIntegration = true;
+
+    # Silence direnv's status chatter ("loading .envrc" / "export +VAR") so
+    # entering a dir doesn't clutter the prompt. log_filter is a WHITELIST regex
+    # — only matching log lines are shown — so "^$" (matches nothing) hides all
+    # informational output. Genuine errors (blocked .envrc, failed commands) use
+    # a separate path and STILL surface, so this doesn't hide real problems.
+    # NB: on direnv 2.37 an empty DIRENV_LOG_FORMAT does NOT silence (it falls
+    # back to the default format); log_filter is the reliable lever.
+    config.global.log_filter = "^$";
   };
 }
