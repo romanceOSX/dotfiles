@@ -100,7 +100,12 @@ and lists them so they can be integrated first. Add new nodes by extending the
   source files live inside a system app bundle.
 - **Docker daemon on Linux:** Colima is Darwin-only (it's a macOS Docker
   runtime). Linux hosts (e.g. `alien`) run **native dockerd**, which is a
-  system service Home Manager can't manage. On a fresh Linux host, enable it
-  once with `sudo systemctl enable --now docker` (from the distro's docker
-  package). The `docker` CLI stays nix-managed (`docker-client` in
-  `home/packages.nix`) and talks to whichever daemon is present.
+  system service Home Manager can't manage — it must be installed once from
+  the distro. On Ubuntu (`alien`) that was:
+  ```sh
+  sudo apt-get install -y docker.io       # pulls containerd + runc
+  sudo systemctl enable --now docker
+  sudo usermod -aG docker romance          # rootless CLI; needs a fresh login
+  ```
+  The `docker` CLI stays nix-managed (`docker-client` in `home/packages.nix`)
+  and talks to whichever daemon is present.
