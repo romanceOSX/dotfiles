@@ -29,8 +29,9 @@ daemon (Colima on macOS, native on Linux) and runtime-generated tokens, so
 
 ## First-time setup
 
-Requires a running docker daemon. On macOS: `colima start`. On `alien` Colima is
-already a systemd user service.
+Requires a running docker daemon. On macOS: `colima start`. On Linux hosts
+(`alien`, WSL, debian) use the distro's native **system dockerd** (managed
+outside nix via systemd/root) — colima is macOS-only.
 
 ```sh
 messaging-stack setup                # alien (default — no macOS battery drain)

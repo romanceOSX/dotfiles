@@ -19,5 +19,6 @@
     ../alien.nix
     ../devtunnel.nix
     ../opencode.nix
+    ../goose.nix
   ];
 }

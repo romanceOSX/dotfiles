@@ -138,5 +138,11 @@
       source = ../.local/bin/install-sshd-daemon;
       executable = true;
     };
+    # WSL-only at runtime (self-guards); installed on all Linux hosts because
+    # this machine's WSL instance may activate as either .#wsl or .#work.
+    ".local/bin/img-paste" = {
+      source = ../.local/bin/img-paste;
+      executable = true;
+    };
   };
 }

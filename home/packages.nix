@@ -53,7 +53,27 @@
             # (declares gh-dash + gh-notify TUI extensions there too).
             fastfetch
             hyfetch
-            cmake
+            # cmake 4.2.0 — nixpkgs-unstable still ships 4.1.2, but some
+            # projects (CMakeLists.txt with cmake_minimum_required 4.2.0)
+            # refuse to configure on an older cmake. Override just the version
+            # + source tarball on top of the nixpkgs derivation until unstable
+            # catches up, then drop this override and go back to plain `cmake`.
+            (cmake.overrideAttrs (old: rec {
+              version = "4.2.0";
+              src = fetchurl {
+                url = "https://cmake.org/files/v${lib.versions.majorMinor version}/cmake-${version}.tar.gz";
+                hash = "sha256-QQTpRlfSR8gRyymYVAWjYLeBMLXVHn9trOskR4ML1Xk=";
+              };
+              # nixpkgs' remove-impure-search-paths.patch is written for 4.1.2 and
+              # no longer applies to 4.2.0 (many Find*/curl hunks drifted). It only
+              # strips host search paths (/usr, /usr/local, …) from cmake's Find
+              # modules — irrelevant for an interactively-used cmake — so drop just
+              # that patch and keep the two nix-integration patches, which still
+              # apply cleanly. Remove this whole override once nixpkgs ships 4.2.x.
+              patches = builtins.filter (
+                p: !(lib.hasInfix "remove-impure-search-paths" (baseNameOf (toString p)))
+              ) old.patches;
+            }))
             gnumake
             macchina
             openai-whisper

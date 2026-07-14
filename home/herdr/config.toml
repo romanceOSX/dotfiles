@@ -10,6 +10,7 @@ pane_borders = false
 pane_gaps = false
 sidebar_width = 18
 
+show_agent_labels_on_pane_borders = true
 [theme]
 name = "nord"
 auto_switch = false
@@ -22,3 +23,6 @@ key = "prefix+f"
 type = "pane"
 command = "herdr-sessionizer"
 description = "project sessionizer (editor/lazygit/claude tabs)"
+
+[ui.toast]
+delivery = "off"

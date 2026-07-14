@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# img-paste — make Windows-clipboard images pasteable into terminal apps.
+#
+# Why this exists:
+#   Copilot CLI (and similar TUIs) can attach an image from the clipboard, but
+#   only when the terminal forwards a *paste event*. Windows Terminal sends
+#   nothing to the app when the clipboard holds an image with no text, so the
+#   image never reaches the app.
+#
+#   This script bridges that gap: it pulls the image off the *Windows* clipboard
+#   via PowerShell, saves it to a PNG, then puts that file's path on the
+#   clipboard *as text*. A normal text paste (Ctrl+Shift+V) then inserts the
+#   path, which Copilot CLI resolves into an image attachment.
+#
+# Usage:
+#   1. Copy an image (e.g. Win+Shift+S screenshot).
+#   2. Run `img-paste` (in any WSL shell / tmux pane).
+#   3. In the Copilot prompt, paste (Ctrl+Shift+V) — the image is attached.
+#
+# The path is also printed to stdout for use in scripts / `@`-mentions.
+
+set -euo pipefail
+
+if [[ "$(uname)" == Darwin ]] || ! grep -qi microsoft /proc/version 2>/dev/null; then
+  echo "img-paste: WSL-only (reads the Windows clipboard via PowerShell)." >&2
+  exit 1
+fi
+
+powershell() {
+  local root="${SYSTEMROOT:-${SystemRoot:-C:\\Windows}}"
+  local exe
+  exe="$(wslpath -u "$root" 2>/dev/null)/System32/WindowsPowerShell/v1.0/powershell.exe"
+  [[ -x "$exe" ]] || exe="powershell.exe"
+  "$exe" -NoProfile -NonInteractive "$@"
+}
+
+outdir="${XDG_CACHE_HOME:-$HOME/.cache}/img-paste"
+mkdir -p "$outdir"
+win_outdir="$(wslpath -w "$outdir")"
+name="clip-$(date +%Y%m%d-%H%M%S)-$$.png"
+
+script="
+Add-Type -AssemblyName System.Windows.Forms
+\$img = [System.Windows.Forms.Clipboard]::GetImage()
+if (\$img -eq \$null) { exit 3 }
+\$p = Join-Path '$win_outdir' '$name'
+\$img.Save(\$p, [System.Drawing.Imaging.ImageFormat]::Png)
+Write-Output \$p
+"
+
+if ! win_path="$(powershell -Command "$script" 2>/dev/null | tr -d '\r')" || [[ -z "$win_path" ]]; then
+  echo "img-paste: no image on the clipboard (copy one first, e.g. Win+Shift+S)." >&2
+  exit 1
+fi
+
+path="$(wslpath -u "$win_path")"
+
+# Put the WSL path on the clipboard as text so a normal paste inserts it.
+# printf (no trailing newline) keeps the paste from auto-submitting the prompt.
+printf '%s' "$path" | clip.exe
+
+echo "$path"
+echo "img-paste: copied path to clipboard — paste (Ctrl+Shift+V) into Copilot to attach." >&2
