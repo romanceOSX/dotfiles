@@ -2,14 +2,13 @@
 # portainer — run the Portainer CE container (the docker management web UI).
 #
 # Portainer ships only as a docker image (no nixpkgs package exists), so it runs
-# as a container rather than a nix-installed binary. This works anywhere a docker
-# daemon is reachable: macOS via colima, or a Linux host running the distro's
-# dockerd (the enableDocker hosts). Home Manager only installs this launcher on
-# docker-enabled machines (see home/portainer.nix).
+# as a container rather than a nix-installed binary. Home Manager only installs
+# this launcher on Linux servers running dockerd (the enableDocker hosts — see
+# home/portainer.nix); macOS is excluded since those machines rarely run
+# containers.
 #
 # The container uses --restart=unless-stopped, so once started it comes back with
-# the docker daemon across reboots without needing a systemd service (which
-# wouldn't work on macOS anyway).
+# the docker daemon across reboots.
 #
 # Usage: portainer {start|stop|restart|status|logs|update}
 #   portainer start     # create/start the container → https://localhost:9443
@@ -30,8 +29,8 @@ need_docker() {
   command -v docker >/dev/null 2>&1 || {
     echo "portainer: docker not found on PATH." >&2; exit 1; }
   docker info >/dev/null 2>&1 || {
-    echo "portainer: docker daemon not reachable — start it first" >&2
-    echo "           (macOS: 'colima start'; Linux: 'systemctl --user status' / system dockerd)." >&2
+    echo "portainer: docker daemon not reachable — is dockerd running?" >&2
+    echo "           (Linux: 'sudo systemctl status docker')." >&2
     exit 1
   }
 }

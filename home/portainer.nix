@@ -4,13 +4,12 @@
 # a container. So instead of a package we install a launcher (.local/bin/portainer,
 # `portainer start|stop|status|update`) that drives `docker run portainer/portainer-ce`.
 #
-# It only makes sense where a docker daemon is present, so it's gated to the same
-# hosts that get the docker CLI (see home/packages.nix): macOS (colima) or a Linux
-# host that opts into docker via `enableDocker` in flake.nix. On every other host
-# this module is a no-op.
+# Gated to Linux servers that run dockerd (the `enableDocker` hosts in flake.nix).
+# macOS is excluded on purpose — those machines almost never run containers, and
+# Portainer is for managing the always-on server daemons. No-op on every other host.
 { pkgs, lib, enableDocker ? false, ... }:
 let
-  dockerHost = pkgs.stdenv.isDarwin || (pkgs.stdenv.isLinux && enableDocker);
+  dockerHost = pkgs.stdenv.isLinux && enableDocker;
 in
 {
   home.file = lib.mkIf dockerHost {
