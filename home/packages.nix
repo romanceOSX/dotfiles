@@ -93,12 +93,15 @@
             # (declares gh-dash + gh-notify TUI extensions there too).
             fastfetch
             hyfetch
-            # cmake 4.2.0 — nixpkgs-unstable still ships 4.1.2, but some
-            # projects (CMakeLists.txt with cmake_minimum_required 4.2.0)
-            # refuse to configure on an older cmake. Override just the version
-            # + source tarball on top of the nixpkgs derivation until unstable
-            # catches up, then drop this override and go back to plain `cmake`.
-            (cmake.overrideAttrs (old: rec {
+            # cmake 4.2.0 on Linux — nixpkgs-unstable still ships 4.1.2, but some
+            # projects (CMakeLists.txt with cmake_minimum_required 4.2.0) refuse
+            # to configure on an older cmake. Override just the version + source
+            # tarball on top of the nixpkgs derivation until unstable catches up.
+            # macOS keeps plain `cmake`: the 4.2.0 source rejects one of nixpkgs'
+            # darwin-only patches (the Utilities/cmcurl/CMakeLists.txt hunk fails
+            # to apply), and nothing on the Mac needs 4.2 yet. Drop the whole
+            # conditional once nixpkgs ships 4.2.x.
+            (if stdenv.isDarwin then cmake else cmake.overrideAttrs (old: rec {
               version = "4.2.0";
               src = fetchurl {
                 url = "https://cmake.org/files/v${lib.versions.majorMinor version}/cmake-${version}.tar.gz";
@@ -109,7 +112,7 @@
               # strips host search paths (/usr, /usr/local, …) from cmake's Find
               # modules — irrelevant for an interactively-used cmake — so drop just
               # that patch and keep the two nix-integration patches, which still
-              # apply cleanly. Remove this whole override once nixpkgs ships 4.2.x.
+              # apply cleanly.
               patches = builtins.filter (
                 p: !(lib.hasInfix "remove-impure-search-paths" (baseNameOf (toString p)))
               ) old.patches;
