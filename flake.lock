@@ -139,11 +139,11 @@
     },
     "work-dotfiles": {
       "locked": {
-        "lastModified": 1783820028,
-        "narHash": "sha256-U1qzm+BtgvJWnMhKICEzgu7CaILFfR0p08QBNJSWATI=",
+        "lastModified": 1783988032,
+        "narHash": "sha256-CmLMEij0lEt+N9F/xMbx2hqefWBIfpdNUjahneTKNv0=",
         "ref": "refs/heads/master",
-        "rev": "6dda33890a04d5ba58ab6c52651ba6bdde3f60f5",
-        "revCount": 3,
+        "rev": "2d17d8e03f33e674afca84c77eb00ad44c6c6f33",
+        "revCount": 4,
         "type": "git",
         "url": "ssh://git@github.com/romanceOSX/work-dotfiles.git"
       },
