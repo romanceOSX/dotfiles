@@ -9,12 +9,18 @@
   username = "romance";
   homeDirectory = "/home/romance";
 
-  # Host role. Set to true on a "server" — a box that runs the distro's system
-  # dockerd and should get the heavy docker/server tooling (docker CLI,
-  # lazydocker, portainer). Leave false (the default) on client-only machines
-  # (e.g. a WSL box that just SSHes out) so they stay lean. Only meaningful on
-  # Linux; macOS gets docker via colima regardless. See flake.nix, home/packages.nix.
-  # isServer = true;
+  # Host role — deployment flavor, one of "minimal" | "client" | "server"
+  # (default "client"). Nested: server ⊇ client ⊇ minimal.
+  #   minimal — IoT/appliance tier: shell + core CLI + editor + monitoring only,
+  #             no dev toolchains, no herdr, no docker. Good for weak/uncached
+  #             boxes (e.g. a Raspberry Pi).
+  #   client  — full workstation: minimal + language toolchains, LSPs, formatters,
+  #             editor tooling, and the personal apps (taskwarrior/herdr/opencode).
+  #   server  — client + the distro-dockerd tooling (docker CLI, lazydocker, and
+  #             the portainer launcher). Linux only; macOS uses colima either way.
+  # A client box that occasionally serves just flips this one line (or run
+  # `hm-role server`), then `hm-switch`.
+  # role = "server";
 
   # WingTask cloud sync (Taskwarrior). Set this to your WingTask sync endpoint
   # to join the task-sync mesh on this host; leave it unset to skip cloud sync.

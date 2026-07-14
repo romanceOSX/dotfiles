@@ -100,6 +100,12 @@
       source = ../.local/bin/hm-switch;
       executable = true;
     };
+    # `hm-role <minimal|client|server> [host]` — sets this machine's deployment
+    # role in local.nix and switches (see flake.nix role model).
+    ".local/bin/hm-role" = {
+      source = ../.local/bin/hm-role;
+      executable = true;
+    };
     ".local/bin/netbench" = {
       source = ../.local/bin/netbench;
       executable = true;

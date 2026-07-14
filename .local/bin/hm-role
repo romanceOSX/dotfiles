@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# hm-role — pick this machine's deployment role, then switch to it.
+#
+# Roles (see flake.nix): minimal | client | server (nested — server ⊇ client ⊇
+# minimal). This writes `role = "<x>";` into ./local.nix and runs `hm-switch`,
+# so a client box that occasionally serves flips to server in one command:
+#
+#   hm-role server            # writes local.nix role, switches this host
+#   hm-role minimal wsl       # explicit host (needed on the work box)
+#
+# Host is auto-detected when omitted (Darwin→osx, WSL→wsl, else debian); pass it
+# explicitly for `work`. The fixed-identity hosts (pi, alien) hardcode their role
+# in flake.nix and ignore local.nix — hm-role warns if you target them.
+set -euo pipefail
+
+role="${1:-}"
+case "$role" in
+  minimal|client|server) ;;
+  *) echo "usage: hm-role <minimal|client|server> [host]" >&2; exit 2 ;;
+esac
+
+flake_dir="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || echo "$HOME/git/dots")"
+localnix="$flake_dir/local.nix"
+
+# Host: explicit 2nd arg, else auto-detect.
+host="${2:-}"
+if [ -z "$host" ]; then
+  if [ "$(uname)" = Darwin ]; then host=osx
+  elif grep -qi microsoft /proc/version 2>/dev/null; then host=wsl
+  else host=debian
+  fi
+fi
+
+case "$host" in
+  pi|alien)
+    echo "hm-role: '$host' hardcodes its role in flake.nix — local.nix role has no effect there." >&2
+    ;;
+esac
+
+# Ensure local.nix exists (seed from the example so identity/defaults survive).
+if [ ! -f "$localnix" ]; then
+  if [ -f "$flake_dir/local.nix.example" ]; then
+    cp "$flake_dir/local.nix.example" "$localnix"
+    echo "hm-role: created $localnix from local.nix.example." >&2
+  else
+    printf '{\n}\n' > "$localnix"
+  fi
+fi
+
+# Set the role: rewrite an existing active `role = "...";` line, else insert one
+# right after the opening `{`. (portable — no `sed -i`, which differs on BSD/GNU.)
+tmp="$(mktemp)"
+if grep -qE '^[[:space:]]*role[[:space:]]*=' "$localnix"; then
+  sed -E "s/^([[:space:]]*)role[[:space:]]*=[[:space:]]*\"[^\"]*\";/\1role = \"$role\";/" "$localnix" > "$tmp"
+else
+  awk -v r="$role" '
+    !ins && /^[[:space:]]*\{[[:space:]]*$/ { print; print "  role = \"" r "\";"; ins=1; next }
+    { print }
+    END { if (!ins) { print "HMROLE_NOANCHOR" > "/dev/stderr" } }
+  ' "$localnix" > "$tmp"
+fi
+
+if grep -q HMROLE_NOANCHOR "$tmp" 2>/dev/null || ! grep -qE "role[[:space:]]*=[[:space:]]*\"$role\";" "$tmp"; then
+  rm -f "$tmp"
+  echo "hm-role: couldn't set role automatically in $localnix — add \`role = \"$role\";\` by hand, then run hm-switch $host." >&2
+  exit 1
+fi
+mv "$tmp" "$localnix"
+echo "hm-role: set role = \"$role\" in $localnix; switching $host…" >&2
+
+exec hm-switch "$host"

@@ -55,6 +55,23 @@
         localDefaults
         // (if builtins.pathExists ./local.nix then import ./local.nix else { });
 
+      # Host roles — three nested deployment flavors, server ⊇ client ⊇ minimal.
+      #   minimal — IoT/appliance tier (e.g. the Pi): usable shell + core CLI +
+      #             editor + monitoring, no heavy dev/build tooling. Uses the
+      #             lean base.nix profile.
+      #   client  — full workstation: minimal + language toolchains, LSPs,
+      #             formatters, editor tooling, personal apps. Uses personal.nix.
+      #   server  — a client that also runs services: client + the distro-dockerd
+      #             tooling (docker CLI, lazydocker, portainer; Linux only).
+      # Higher rank = more surface. `roleAtLeast` lets modules gate on a tier.
+      roleRank = { minimal = 0; client = 1; server = 2; };
+      validRole = r:
+        if builtins.hasAttr r roleRank then r
+        else throw ''dots: invalid role "${toString r}" — expected "minimal", "client", or "server".'';
+      # Curried: (mkRoleAtLeast "client") "minimal" == true. Passed per host as
+      # `roleAtLeast` so modules can do `roleAtLeast "client"` → bool.
+      mkRoleAtLeast = current: threshold: roleRank.${current} >= roleRank.${threshold};
+
       # Systems this repo is ever activated on. Used only for the dev shell
       # below — the per-host homeConfigurations pin their own system.
       forAllSystems = nixpkgs.lib.genAttrs [
@@ -70,16 +87,30 @@
       #   homeDirectory  — absolute path to $HOME on that machine
       #   isWSL          — true under WSL (Syncthing then runs on the Windows host,
       #                    not via nix). Defaults to false (bare Linux / macOS).
-      #   profile        — the composed role for this host (a module path under
-      #                    ./home/profiles). Defaults to the personal profile;
-      #                    override per host to build a leaner or work role.
+      #   role           — deployment flavor: "minimal" | "client" | "server"
+      #                    (default "client"). Picks the profile (minimal→base.nix,
+      #                    client/server→personal.nix), the package tier, and the
+      #                    docker/server tooling. See the role note above.
+      #   profile        — escape hatch to force a specific profile module path,
+      #                    overriding the role→profile mapping. Defaults to null
+      #                    (derive from role).
       #   extraModules   — additional Home Manager modules layered on top of the
       #                    profile (e.g. the private work module for the work host).
       mkHome =
         { system, username, homeDirectory, isWSL ? false, isAlien ? false
-        , includeHerdr ? true, isServer ? false
-        , profile ? ./home/profiles/personal.nix
+        , role ? "client"
+        , profile ? null
         , extraModules ? [ ] }:
+        let
+          checkedRole = validRole role;             # throws on a bad enum (lazy, per-host)
+          roleAtLeast = mkRoleAtLeast checkedRole;   # helper: roleAtLeast "client" → bool
+          isServer = checkedRole == "server";
+          includeHerdr = roleAtLeast "client";       # minimal ⇒ no herdr (also pi's aarch64 win)
+          selectedProfile =
+            if profile != null then profile
+            else if roleAtLeast "client" then ./home/profiles/personal.nix
+            else ./home/profiles/base.nix;
+        in
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
             inherit system;
@@ -91,8 +122,8 @@
               config.allowUnfree = true;
             };
             # herdr — AI agent multiplexer (like tmux, but for coding agents).
-            # Set includeHerdr = false for hosts where compiling Rust from source
-            # is impractical (e.g. Raspberry Pi with no binary cache).
+            # Only client+ hosts get it (minimal drops it, which also avoids the
+            # from-source Rust compile on aarch64 hosts like the Pi).
             herdr = if includeHerdr then herdr.packages.${system}.default or null else null;
             inherit isWSL;
             # Gates the Alienware-only utilities (rom-alien-rgb-*). True only for
@@ -100,14 +131,11 @@
             # default, so the OpenRGB wrappers never land on machines without
             # that hardware. See home/alien.nix.
             inherit isAlien;
-            # Host role: true → this box is a "server" and gets the heavy
-            # docker/server tooling (docker CLI, lazydocker, portainer). Servers
-            # run the distro's system dockerd; client-only Linux/WSL boxes leave
-            # it false and stay lean. Hardcoded for fixed-identity hosts (alien =
-            # server, pi = client) and read per-machine from local.nix for the
-            # shared configs (wsl/debian/work). See home/packages.nix,
-            # home/portainer.nix.
-            inherit isServer;
+            # Host role + tier helper (see the role note above). `role` and
+            # `roleAtLeast` gate package tiers and modules; `isServer` is the
+            # derived `role == "server"` convenience for the docker/server gates
+            # in home/packages.nix + home/portainer.nix.
+            inherit role roleAtLeast isServer;
             # WingTask cloud sync (Taskwarrior) — only the non-secret server URL
             # is read off `local` here; it doubles as the per-host "sync on?"
             # gate. The sensitive client_id + encryption_secret now live
@@ -119,7 +147,7 @@
           };
           modules = [
             sops-nix.homeManagerModules.sops
-            profile
+            selectedProfile
             {
               home.username = username;
               home.homeDirectory = homeDirectory;
@@ -130,11 +158,14 @@
     {
       # Activate with:  home-manager switch --flake .#<name>
       homeConfigurations = {
-        # current macOS machine (Apple Silicon)
+        # current macOS machine (Apple Silicon). Defaults to the client role;
+        # drop `role = "server";` in local.nix to flip it (Mac servers just use
+        # colima docker — the Linux server package/portainer block stays off).
         "osx" = mkHome {
           system = "aarch64-darwin";
           username = "romance";
           homeDirectory = "/Users/romance";
+          role = local.role or "client";
           # The Mac is the Dev Tunnel client for the work boxes, so it pulls in
           # the private work SSH hosts (axxis-*). Requires access to the private
           # work-dotfiles repo to build.
@@ -142,20 +173,20 @@
         };
 
         # WSL (Ubuntu/Debian under Windows) — uses local.nix identity.
-        # This one config is shared by multiple physical WSL boxes: some are
-        # servers (run dockerd), some are pure clients. So `isServer` is read
-        # per-machine from local.nix (set `isServer = true;` there on a server).
+        # This one config is shared by multiple physical WSL boxes with different
+        # roles (some servers running dockerd, some pure clients, some minimal),
+        # so `role` is read per-machine from local.nix (`role = "server";` etc).
         "wsl" = mkHome {
           system = "x86_64-linux";
           isWSL = true; # Syncthing runs on the Windows host, not via nix here
-          isServer = local.isServer or false;
+          role = local.role or "client";
           inherit (local) username homeDirectory;
         };
 
         # bare-metal / VM Debian — uses local.nix identity
         "debian" = mkHome {
           system = "x86_64-linux";
-          isServer = local.isServer or false;
+          role = local.role or "client";
           inherit (local) username homeDirectory;
         };
 
@@ -164,7 +195,7 @@
         # (the encrypted creds come from sops — see home/secrets.nix).
         "work" = mkHome {
           system = "x86_64-linux";
-          isServer = local.isServer or false;
+          role = local.role or "client";
           inherit (local) username homeDirectory;
           extraModules = [ work-dotfiles.homeModules.default ];
         };
@@ -176,18 +207,19 @@
           username = "romance";
           homeDirectory = "/home/romance";
           isAlien = true; # unlocks rom-alien-rgb-* (OpenRGB wrappers, see home/alien.nix)
-          isServer = true; # build server — runs the distro's system dockerd (docker.io)
+          role = "server"; # build server — full dev tier + distro dockerd tooling
         };
 
         # Raspberry Pi (64-bit Raspberry Pi OS / Debian Bookworm, aarch64).
         # Identity is hardcoded so the headless Pi needs no local.nix.
-        # herdr excluded — no binary cache for aarch64-linux means compiling
-        # Rust from source, which takes hours on Pi hardware.
+        # Minimal role — core shell/CLI/editor only, no dev tier. This also drops
+        # herdr, whose from-source Rust build has no aarch64 binary cache and
+        # takes hours on Pi hardware.
         "pi" = mkHome {
           system = "aarch64-linux";
           username = "romance";
           homeDirectory = "/home/romance";
-          includeHerdr = false;
+          role = "minimal";
         };
       };
 

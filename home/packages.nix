@@ -1,9 +1,15 @@
-{ pkgs, pkgs-neovim, lib, isServer ? false, ... }:
+{ pkgs, pkgs-neovim, lib, role ? "client", roleAtLeast ? (_: true), ... }:
 {
-    # Toolchains + the CLI utilities the configs/scripts assume on PATH.
-    # (zsh, fzf, starship, lazygit, yazi, tmux, git come from their own
-    #  program modules in shell.nix / programs.nix / tmux.nix.)
+    # Packages, split by host role (see flake.nix). The always-on set is the
+    # "minimal" tier — the core shell/CLI/editor an IoT box (e.g. the Pi) needs.
+    # The heavy dev/workstation surface is added for `client`+ hosts, and the
+    # docker/server tooling only for `server` hosts (Linux). zsh, fzf, starship,
+    # lazygit, yazi, btop, tmux, git come from their own program modules
+    # (shell.nix / programs.nix / tmux.nix) and so are present in every tier.
     home.packages =
+        # ===================================================================
+        # minimal / core tier — ALWAYS (every role, incl. minimal IoT nodes)
+        # ===================================================================
         [
             # --- editor (config is an out-of-store symlink, see programs.nix) ---
             # Pinned to neovim 0.12.0 — see nixpkgs-neovim in flake.nix.
@@ -12,9 +18,49 @@
             # (a nil value)" on every cursor move in markdown buffers;
             # 0.11.x lacks features aerial.nvim needs. 0.12.0 predates
             # the regression and supports aerial.
+            # Kept in the minimal tier so `$EDITOR=nvim` (set in shell.nix) is
+            # always valid; the LSP servers / formatters / toolchains below are
+            # client-only, and nvim degrades gracefully without them.
             pkgs-neovim.neovim
         ]
         ++ (with pkgs; [
+            tree-sitter # CLI used by nvim-treesitter (main branch) to build parsers
+            vimPlugins.nvim-treesitter # nvim-treesitter plugin package (syntax; hard nvim dep)
+
+            # --- core utilities configs/scripts assume on PATH ---
+            coreutils # GNU ls/etc. — makes `ls --color` + LS_COLORS work everywhere
+            gawk # rainbow-prompt / tmux-rainbow sine-wave gradients
+            gnused
+            stow # keep the non-nix stow install path working too
+            nerd-fonts.symbols-only # glyph icons for prompt + yazi
+
+            # --- modern CLI replacements (aliased in shell.nix) ---
+            eza # ls  — listing + tree + git status
+            # bat (cat) is wired via programs.bat in programs.nix (themed).
+            fd # find — simpler/faster file search
+            ripgrep # grep — fast recursive text search
+            dust # du  — disk-usage tree
+            dua # du  — interactive disk-usage analyzer
+            duf # df  — filesystem usage
+            procs # ps  — process listing
+            tealdeer # man — `tldr` example-driven docs
+            viddy # watch — live command output
+            delta # diff — syntax-highlighted diffs (also git pager, see programs.nix)
+            # zoxide (cd) is wired via programs.zoxide in shell.nix.
+            # fzf (history/fuzzy) is wired via programs.fzf in shell.nix.
+            # btop (monitoring) is wired via programs.btop in programs.nix.
+
+            # --- core misc + networking ---
+            jq # JSON — general purpose + yazi/plugin scripts
+            curl # HTTP client
+            dig # DNS lookups (from bind)
+            mtr # traceroute + ping combined
+            tailscale # mesh VPN — remote access between machines (wanted on every node)
+        ])
+        # ===================================================================
+        # client / dev tier — roleAtLeast "client" (workstations + servers)
+        # ===================================================================
+        ++ lib.optionals (roleAtLeast "client") (with pkgs; [
             # --- toolchains (chosen via setup) ---
             nodejs_22 # Node.js (replaces the homebrew nvm lazy-load on nix hosts)
             rustc
@@ -24,8 +70,6 @@
             rust-analyzer
             clang # provides clang++ (clang++ -std=c++20 alias)
             clang-tools # provides clangd (config in home/programs.nix → ~/.config/clangd)
-            tree-sitter # CLI used by nvim-treesitter (main branch) to build parsers
-            vimPlugins.nvim-treesitter # nvim-treesitter plugin package
 
             # --- LSP servers ---
             lua-language-server
@@ -44,11 +88,7 @@
             python3Packages.tkinter
             uv # fast Python package and project manager
 
-            # --- utilities used by configs & .local/bin scripts ---
-            coreutils # GNU ls/etc. — makes `ls --color` + LS_COLORS work everywhere
-            gawk # rainbow-prompt / tmux-rainbow sine-wave gradients
-            gnused
-            stow # keep the non-nix stow install path working too
+            # --- build / dev utilities ---
             # gh (GitHub CLI) is wired via programs.gh in programs.nix
             # (declares gh-dash + gh-notify TUI extensions there too).
             fastfetch
@@ -80,29 +120,13 @@
 
             # --- yazi preview dependencies (file previewers) ---
             ffmpeg # video thumbnails / transcoding
-            jq # JSON preview + plugin scripts
             poppler-utils # PDF previews (pdftoppm)
             _7zz # archive previews (7zz)
             resvg # SVG previews
             imagemagick # image previews / convert
             chafa # terminal image previewer
-            nerd-fonts.symbols-only # glyph icons for prompt + yazi
 
-            # --- modern CLI replacements (aliased in shell.nix) ---
-            eza # ls  — listing + tree + git status
-            # bat (cat) is wired via programs.bat in programs.nix (themed).
-            fd # find — simpler/faster file search
-            ripgrep # grep — fast recursive text search
-            dust # du  — disk-usage tree
-            dua # du  — interactive disk-usage analyzer
-            duf # df  — filesystem usage
-            procs # ps  — process listing
-            tealdeer # man — `tldr` example-driven docs
-            viddy # watch — live command output
-            delta # diff — syntax-highlighted diffs (also git pager, see programs.nix)
-            # zoxide (cd) is wired via programs.zoxide in shell.nix.
-            # fzf (history/fuzzy) is wired via programs.fzf in shell.nix.
-
+            # --- dev CLI ---
             just # command runner (Makefile alternative)
             tokscale # token usage tracker for agentic coding tools (Claude Code, etc.)
             opencode # Google opencode coding assistant
@@ -113,28 +137,29 @@
             hledger-ui
             hledger-web
 
-            # --- networking ---
+            # --- networking (extras beyond the core dig/mtr/curl above) ---
             nmap # port scanner
-            curl # HTTP client
-            dig # DNS lookups (from bind)
-            mtr # traceroute + ping combined
-            tailscale # mesh VPN — remote access between machines
             sshm # SSH bookmark manager
             assh # SSH proxy/wrapper with advanced config
 
             # --- cloud ---
             azure-cli # `az` — Azure CLI (Python-based, cross-platform)
         ])
+        # ===================================================================
+        # platform: macOS
+        # ===================================================================
         ++ lib.optionals pkgs.stdenv.isDarwin [
+            # `ip` shim wrapping ifconfig/netstat/route. Partial coverage of the
+            # real iproute2 (handles `ip addr`/`route`/`link`; no `ss`). Core.
+            pkgs.iproute2mac
+        ]
+        ++ lib.optionals (pkgs.stdenv.isDarwin && roleAtLeast "client") [
             # Container runtime: macOS can't run a native Linux dockerd, so use
-            # colima (QEMU/Lima VM) + the docker CLI. On Linux we use the
-            # distro's system dockerd instead (see the isLinux block + AGENTS.md).
+            # colima (QEMU/Lima VM) + the docker CLI/TUI. (On Linux servers we use
+            # the distro's system dockerd instead — see the server block below.)
             pkgs.colima
             pkgs.docker-client # docker CLI — talks to colima's VM daemon
             pkgs.lazydocker # docker TUI (containers/images/logs)
-            # `ip` shim wrapping ifconfig/netstat/route. Partial coverage of the
-            # real iproute2 (handles `ip addr`/`route`/`link`; no `ss`).
-            pkgs.iproute2mac
             # pngpaste — dumps the clipboard image to a file; used by img-clip.nvim
             # (<leader>p) to paste screenshots into markdown. See nvim imgclip.lua.
             pkgs.pngpaste
@@ -143,6 +168,10 @@
             # programs.nix so Spotlight and Launchpad can find it.
             pkgs.ghostty-bin
         ]
+        # ===================================================================
+        # platform: Linux (core — backs shell aliases / scripts / clipboard yank
+        # on any Linux box, including minimal nodes)
+        # ===================================================================
         ++ lib.optionals pkgs.stdenv.isLinux [
             # macOS ships these; on Linux pull them in for the scripts/clipboard yank.
             pkgs.xclip
@@ -162,14 +191,15 @@
             # on every ssh/scp/git-over-ssh call; the gssapi build recognizes it.
             pkgs.openssh_gssapi
         ]
-        # Server tooling — only on Linux hosts flagged `isServer` in flake.nix
-        # (per-machine via local.nix; see the role note there). These are the
-        # boxes that run the distro's native system dockerd (managed outside nix
+        # ===================================================================
+        # server tier — Linux hosts with role == "server"
+        # ===================================================================
+        # These boxes run the distro's native system dockerd (managed outside nix
         # via systemd/root — NOT colima); nix only ships the docker CLI + TUI,
-        # which talk to it over /var/run/docker.sock. Client-only Linux hosts
-        # (e.g. a WSL box that just SSHes out) skip all of it. macOS gets docker
-        # via colima in the isDarwin block instead. See AGENTS.md.
-        ++ lib.optionals (pkgs.stdenv.isLinux && isServer) [
+        # which talk to it over /var/run/docker.sock. Client/minimal Linux hosts
+        # skip it; macOS gets docker via colima in the client block above. The
+        # portainer launcher is gated the same way in home/portainer.nix. See AGENTS.md.
+        ++ lib.optionals (pkgs.stdenv.isLinux && role == "server") [
             pkgs.docker-client
             pkgs.lazydocker # docker TUI (containers/images/logs)
         ];
