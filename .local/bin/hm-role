@@ -66,6 +66,6 @@ if grep -q HMROLE_NOANCHOR "$tmp" 2>/dev/null || ! grep -qE "role[[:space:]]*=[[
   exit 1
 fi
 mv "$tmp" "$localnix"
-echo "hm-role: set role = \"$role\" in $localnix; switching $host…" >&2
+echo "hm-role: set role = \"$role\" in $localnix; switching ${host}…" >&2
 
-exec hm-switch "$host"
+exec "$flake_dir/.local/bin/hm-switch" "$host"
