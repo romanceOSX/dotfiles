@@ -131,6 +131,7 @@
             # distro's system dockerd instead (see the isLinux block + AGENTS.md).
             pkgs.colima
             pkgs.docker-client # docker CLI — talks to colima's VM daemon
+            pkgs.lazydocker # docker TUI (containers/images/logs)
             # `ip` shim wrapping ifconfig/netstat/route. Partial coverage of the
             # real iproute2 (handles `ip addr`/`route`/`link`; no `ss`).
             pkgs.iproute2mac
@@ -169,5 +170,6 @@
         # (see the isDarwin block). See AGENTS.md + docs/messaging.md.
         ++ lib.optionals (pkgs.stdenv.isLinux && enableDocker) [
             pkgs.docker-client
+            pkgs.lazydocker # docker TUI (containers/images/logs)
         ];
 }
