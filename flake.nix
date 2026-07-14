@@ -77,19 +77,13 @@
       #                    profile (e.g. the private work module for the work host).
       mkHome =
         { system, username, homeDirectory, isWSL ? false, isAlien ? false
-        , includeHerdr ? true, enableDocker ? false
+        , includeHerdr ? true, isServer ? false
         , profile ? ./home/profiles/personal.nix
         , extraModules ? [ ] }:
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
             inherit system;
             config.allowUnfree = true;
-            # libolm is EOL/deprecated upstream (superseded by vodozemac) and so
-            # marked insecure in nixpkgs, but matrix-nio — pulled in by the
-            # weechat-matrix client in home/messaging.nix — still depends on it.
-            # The messaging stack is local-only and unfederated, so the exposure
-            # is negligible; permit it consciously.
-            config.permittedInsecurePackages = [ "olm-3.2.16" ];
           };
           extraSpecialArgs = {
             pkgs-neovim = import nixpkgs-neovim {
@@ -106,10 +100,14 @@
             # default, so the OpenRGB wrappers never land on machines without
             # that hardware. See home/alien.nix.
             inherit isAlien;
-            # Container runtime opt-in: true → install the docker CLI (Linux) so
-            # this host can talk to its distro's system dockerd. Only set on hosts
-            # that actually run the daemon. See home/packages.nix.
-            inherit enableDocker;
+            # Host role: true → this box is a "server" and gets the heavy
+            # docker/server tooling (docker CLI, lazydocker, portainer). Servers
+            # run the distro's system dockerd; client-only Linux/WSL boxes leave
+            # it false and stay lean. Hardcoded for fixed-identity hosts (alien =
+            # server, pi = client) and read per-machine from local.nix for the
+            # shared configs (wsl/debian/work). See home/packages.nix,
+            # home/portainer.nix.
+            inherit isServer;
             # WingTask cloud sync (Taskwarrior) — only the non-secret server URL
             # is read off `local` here; it doubles as the per-host "sync on?"
             # gate. The sensitive client_id + encryption_secret now live
@@ -143,17 +141,21 @@
           extraModules = [ work-dotfiles.homeModules.default ];
         };
 
-        # WSL (Ubuntu/Debian under Windows) — uses local.nix identity
+        # WSL (Ubuntu/Debian under Windows) — uses local.nix identity.
+        # This one config is shared by multiple physical WSL boxes: some are
+        # servers (run dockerd), some are pure clients. So `isServer` is read
+        # per-machine from local.nix (set `isServer = true;` there on a server).
         "wsl" = mkHome {
           system = "x86_64-linux";
           isWSL = true; # Syncthing runs on the Windows host, not via nix here
-          enableDocker = true; # remote-left runs the distro's system dockerd
+          isServer = local.isServer or false;
           inherit (local) username homeDirectory;
         };
 
         # bare-metal / VM Debian — uses local.nix identity
         "debian" = mkHome {
           system = "x86_64-linux";
+          isServer = local.isServer or false;
           inherit (local) username homeDirectory;
         };
 
@@ -162,6 +164,7 @@
         # (the encrypted creds come from sops — see home/secrets.nix).
         "work" = mkHome {
           system = "x86_64-linux";
+          isServer = local.isServer or false;
           inherit (local) username homeDirectory;
           extraModules = [ work-dotfiles.homeModules.default ];
         };
@@ -173,7 +176,7 @@
           username = "romance";
           homeDirectory = "/home/romance";
           isAlien = true; # unlocks rom-alien-rgb-* (OpenRGB wrappers, see home/alien.nix)
-          enableDocker = true; # runs the distro's system dockerd (docker.io)
+          isServer = true; # build server — runs the distro's system dockerd (docker.io)
         };
 
         # Raspberry Pi (64-bit Raspberry Pi OS / Debian Bookworm, aarch64).

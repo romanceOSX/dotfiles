@@ -38,9 +38,18 @@ See `README.md` for full setup and migration details.
 
 - **Profiles** compose hosts. `home/profiles/base.nix` is the universal role
   (shell, packages, programs, tmux, scripts); `home/profiles/personal.nix` =
-  base + personal-only modules (taskwarrior/secrets, messaging, herdr, alien).
+  base + personal-only modules (taskwarrior/secrets, herdr, alien).
   `mkHome` in `flake.nix` picks a `profile` and optional `extraModules` per
   host — don't wire host-specific `imports` into the leaf modules.
+- **Host roles.** `mkHome` also takes boolean role flags (`isWSL`, `isAlien`,
+  `isServer`) threaded to modules via `extraSpecialArgs`. `isServer` marks a box
+  that runs the distro's system dockerd and should get the heavy docker/server
+  tooling (docker CLI, lazydocker, portainer); client-only boxes leave it false
+  and stay lean. It's **hardcoded** for fixed-identity hosts (`alien` = server,
+  `pi` = client) and **read per-machine from `local.nix`** (`isServer = local.isServer or false`)
+  for the shared configs (`wsl`/`debian`/`work`) — because one `wsl` config
+  serves several physical boxes with different roles. macOS is unaffected (it
+  gets docker via colima in the `isDarwin` block regardless).
 - **Secrets** use **sops-nix**. Encrypted values live in `secrets.yaml`
   (committed), decrypted at activation via each host's SSH ed25519 key (see
   `.sops.yaml` recipients and `home/secrets.nix`). Edit with `sops secrets.yaml`;
@@ -98,9 +107,10 @@ and lists them so they can be integrated first. Add new nodes by extending the
   (managed outside nix via systemd/root — install with the OS package, e.g.
   `apt install docker.io`, then `systemctl enable --now docker` and
   `usermod -aG docker <user>`), **not colima**. macOS uses colima (QEMU/Lima VM)
-  since it can't run a native Linux daemon. Nix ships only the `docker` CLI, and
-  only on hosts that opt in via `enableDocker = true` in `flake.nix` (currently
-  `wsl`/remote-left and `alien`). The CLI must use the `default` docker context
+  since it can't run a native Linux daemon. Nix ships the `docker` CLI (plus
+  lazydocker + the portainer launcher) only on hosts flagged `isServer` (see the
+  Host roles note above) — `alien`, and any `wsl`/`debian`/`work` box that sets
+  `isServer = true;` in its `local.nix`. The CLI must use the `default` docker context
   (`unix:///var/run/docker.sock`) — remove any leftover `colima` context with
   `docker context use default && docker context rm colima`.
 

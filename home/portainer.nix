@@ -4,15 +4,16 @@
 # a container. So instead of a package we install a launcher (.local/bin/portainer,
 # `portainer start|stop|status|update`) that drives `docker run portainer/portainer-ce`.
 #
-# Gated to Linux servers that run dockerd (the `enableDocker` hosts in flake.nix).
-# macOS is excluded on purpose — those machines almost never run containers, and
-# Portainer is for managing the always-on server daemons. No-op on every other host.
-{ pkgs, lib, enableDocker ? false, ... }:
+# Gated to Linux hosts flagged `isServer` in flake.nix (the boxes that run
+# dockerd). macOS is excluded on purpose — those machines almost never run
+# containers, and Portainer is for managing the always-on server daemons. No-op
+# on every other host, including client-only Linux/WSL boxes.
+{ pkgs, lib, isServer ? false, ... }:
 let
-  dockerHost = pkgs.stdenv.isLinux && enableDocker;
+  serverHost = pkgs.stdenv.isLinux && isServer;
 in
 {
-  home.file = lib.mkIf dockerHost {
+  home.file = lib.mkIf serverHost {
     ".local/bin/portainer" = {
       source = ../.local/bin/portainer;
       executable = true;

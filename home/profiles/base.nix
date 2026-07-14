@@ -2,7 +2,7 @@
 #
 # This is the "role" every machine shares: shell, editor/tooling packages,
 # per-tool program configs, tmux, and the shell utility scripts. It carries
-# nothing personal-only (no task-sync mesh, no messaging stack, no herdr, no
+# nothing personal-only (no task-sync mesh, no herdr, no
 # Alienware RGB) so it can also underpin an isolated work configuration that
 # doesn't want that surface. See ./personal.nix for the personal role, and the
 # `mkHome` composition in flake.nix.

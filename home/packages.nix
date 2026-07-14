@@ -1,4 +1,4 @@
-{ pkgs, pkgs-neovim, lib, enableDocker ? false, ... }:
+{ pkgs, pkgs-neovim, lib, isServer ? false, ... }:
 {
     # Toolchains + the CLI utilities the configs/scripts assume on PATH.
     # (zsh, fzf, starship, lazygit, yazi, tmux, git come from their own
@@ -162,13 +162,14 @@
             # on every ssh/scp/git-over-ssh call; the gssapi build recognizes it.
             pkgs.openssh_gssapi
         ]
-        # Container runtime CLI — opt-in per host via `enableDocker` in flake.nix.
-        # On Linux the daemon is the distro's native system dockerd (managed
-        # outside nix via systemd/root — NOT colima); nix only ships the docker
-        # CLI, which talks to it over /var/run/docker.sock. Gate it so only hosts
-        # that actually run dockerd get the client. macOS uses colima instead
-        # (see the isDarwin block). See AGENTS.md + docs/messaging.md.
-        ++ lib.optionals (pkgs.stdenv.isLinux && enableDocker) [
+        # Server tooling — only on Linux hosts flagged `isServer` in flake.nix
+        # (per-machine via local.nix; see the role note there). These are the
+        # boxes that run the distro's native system dockerd (managed outside nix
+        # via systemd/root — NOT colima); nix only ships the docker CLI + TUI,
+        # which talk to it over /var/run/docker.sock. Client-only Linux hosts
+        # (e.g. a WSL box that just SSHes out) skip all of it. macOS gets docker
+        # via colima in the isDarwin block instead. See AGENTS.md.
+        ++ lib.optionals (pkgs.stdenv.isLinux && isServer) [
             pkgs.docker-client
             pkgs.lazydocker # docker TUI (containers/images/logs)
         ];

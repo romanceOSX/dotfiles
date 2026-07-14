@@ -108,10 +108,6 @@
       source = ../.local/bin/rom-claude-mem;
       executable = true;
     };
-    ".local/bin/messaging-stack" = {
-      source = ../.local/bin/messaging-stack;
-      executable = true;
-    };
     ".local/bin/devtunnel-ssh-proxy" = {
       source = ../.local/bin/devtunnel-ssh-proxy;
       executable = true;

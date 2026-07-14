@@ -9,6 +9,13 @@
   username = "romance";
   homeDirectory = "/home/romance";
 
+  # Host role. Set to true on a "server" — a box that runs the distro's system
+  # dockerd and should get the heavy docker/server tooling (docker CLI,
+  # lazydocker, portainer). Leave false (the default) on client-only machines
+  # (e.g. a WSL box that just SSHes out) so they stay lean. Only meaningful on
+  # Linux; macOS gets docker via colima regardless. See flake.nix, home/packages.nix.
+  # isServer = true;
+
   # WingTask cloud sync (Taskwarrior). Set this to your WingTask sync endpoint
   # to join the task-sync mesh on this host; leave it unset to skip cloud sync.
   # It doubles as the build-time gate for the sops secrets + sync services.
