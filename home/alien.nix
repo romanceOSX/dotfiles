@@ -109,26 +109,8 @@ in
     };
   };
 
-  # Colima auto-start — Linux/alien only.
-  # Runs the colima VM (QEMU+KVM) as a user service so docker is always
-  # available without a manual `colima start`.  Requires the user to be in
-  # the `kvm` group (done via `usermod -aG kvm romance`).
-  systemd.user.services.colima = lib.mkIf pkgs.stdenv.isLinux {
-    Unit = {
-      Description = "Colima container runtime";
-      After = [ "network.target" ];
-    };
-    Service = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = "${pkgs.colima}/bin/colima start";
-      ExecStop  = "${pkgs.colima}/bin/colima stop";
-      Environment = [
-        "PATH=${pkgs.docker-client}/bin:${pkgs.colima}/bin:/usr/local/bin:/usr/bin:/bin"
-      ];
-    };
-    Install = {
-      WantedBy = [ "default.target" ];
-    };
-  };
+  # No Colima service on Linux — Colima is a macOS Docker runtime (Lima VM).
+  # Linux hosts (alien) run native dockerd, managed by the distro's system
+  # service (e.g. `systemctl enable --now docker` on Ubuntu), not Home Manager.
+  # See home/packages.nix, where `colima` is gated to Darwin.
 }

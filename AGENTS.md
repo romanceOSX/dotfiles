@@ -98,3 +98,9 @@ and lists them so they can be integrated first. Add new nodes by extending the
   (this is the `SFMonoTerminal-*` family — the variant Terminal.app itself
   uses). This is a one-time manual step — Nix cannot manage it because the
   source files live inside a system app bundle.
+- **Docker daemon on Linux:** Colima is Darwin-only (it's a macOS Docker
+  runtime). Linux hosts (e.g. `alien`) run **native dockerd**, which is a
+  system service Home Manager can't manage. On a fresh Linux host, enable it
+  once with `sudo systemctl enable --now docker` (from the distro's docker
+  package). The `docker` CLI stays nix-managed (`docker-client` in
+  `home/packages.nix`) and talks to whichever daemon is present.

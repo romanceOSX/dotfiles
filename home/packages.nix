@@ -53,8 +53,7 @@
             # (declares gh-dash + gh-notify TUI extensions there too).
             fastfetch
             hyfetch
-            colima
-            docker-client # docker CLI — required by colima
+            docker-client # docker CLI — talks to Colima (macOS) or native dockerd (Linux)
             cmake
             gnumake
             macchina
@@ -108,6 +107,9 @@
             azure-cli # `az` — Azure CLI (Python-based, cross-platform)
         ])
         ++ lib.optionals pkgs.stdenv.isDarwin [
+            # Colima — Docker runtime for macOS (Lima VM). Linux uses native
+            # dockerd instead, so colima is Darwin-only. See home/alien.nix.
+            pkgs.colima
             # `ip` shim wrapping ifconfig/netstat/route. Partial coverage of the
             # real iproute2 (handles `ip addr`/`route`/`link`; no `ss`).
             pkgs.iproute2mac
