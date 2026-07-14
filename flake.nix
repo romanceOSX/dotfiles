@@ -77,7 +77,8 @@
       #                    profile (e.g. the private work module for the work host).
       mkHome =
         { system, username, homeDirectory, isWSL ? false, isAlien ? false
-        , includeHerdr ? true, profile ? ./home/profiles/personal.nix
+        , includeHerdr ? true, enableDocker ? false
+        , profile ? ./home/profiles/personal.nix
         , extraModules ? [ ] }:
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
@@ -105,6 +106,10 @@
             # default, so the OpenRGB wrappers never land on machines without
             # that hardware. See home/alien.nix.
             inherit isAlien;
+            # Container runtime opt-in: true → install the docker CLI (Linux) so
+            # this host can talk to its distro's system dockerd. Only set on hosts
+            # that actually run the daemon. See home/packages.nix.
+            inherit enableDocker;
             # WingTask cloud sync (Taskwarrior) — only the non-secret server URL
             # is read off `local` here; it doubles as the per-host "sync on?"
             # gate. The sensitive client_id + encryption_secret now live
@@ -142,6 +147,7 @@
         "wsl" = mkHome {
           system = "x86_64-linux";
           isWSL = true; # Syncthing runs on the Windows host, not via nix here
+          enableDocker = true; # remote-left runs the distro's system dockerd
           inherit (local) username homeDirectory;
         };
 
@@ -167,6 +173,7 @@
           username = "romance";
           homeDirectory = "/home/romance";
           isAlien = true; # unlocks rom-alien-rgb-* (OpenRGB wrappers, see home/alien.nix)
+          enableDocker = true; # runs the distro's system dockerd (docker.io)
         };
 
         # Raspberry Pi (64-bit Raspberry Pi OS / Debian Bookworm, aarch64).

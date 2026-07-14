@@ -81,6 +81,15 @@ and lists them so they can be integrated first. Add new nodes by extending the
 - tmux prefix is `C-a`; tmux and shell both use **vi** bindings.
 - Shell utilities live in `.local/bin/` (e.g. `tmux-sessionizer`,
   `tmux-launcher`).
+- **Containers:** on Linux the daemon is the distro's native **system dockerd**
+  (managed outside nix via systemd/root — install with the OS package, e.g.
+  `apt install docker.io`, then `systemctl enable --now docker` and
+  `usermod -aG docker <user>`), **not colima**. macOS uses colima (QEMU/Lima VM)
+  since it can't run a native Linux daemon. Nix ships only the `docker` CLI, and
+  only on hosts that opt in via `enableDocker = true` in `flake.nix` (currently
+  `wsl`/remote-left and `alien`). The CLI must use the `default` docker context
+  (`unix:///var/run/docker.sock`) — remove any leftover `colima` context with
+  `docker context use default && docker context rm colima`.
 
 ## Gotchas
 
@@ -98,14 +107,3 @@ and lists them so they can be integrated first. Add new nodes by extending the
   (this is the `SFMonoTerminal-*` family — the variant Terminal.app itself
   uses). This is a one-time manual step — Nix cannot manage it because the
   source files live inside a system app bundle.
-- **Docker daemon on Linux:** Colima is Darwin-only (it's a macOS Docker
-  runtime). Linux hosts (e.g. `alien`) run **native dockerd**, which is a
-  system service Home Manager can't manage — it must be installed once from
-  the distro. On Ubuntu (`alien`) that was:
-  ```sh
-  sudo apt-get install -y docker.io       # pulls containerd + runc
-  sudo systemctl enable --now docker
-  sudo usermod -aG docker romance          # rootless CLI; needs a fresh login
-  ```
-  The `docker` CLI stays nix-managed (`docker-client` in `home/packages.nix`)
-  and talks to whichever daemon is present.

@@ -1,4 +1,4 @@
-{ pkgs, pkgs-neovim, lib, ... }:
+{ pkgs, pkgs-neovim, lib, enableDocker ? false, ... }:
 {
     # Toolchains + the CLI utilities the configs/scripts assume on PATH.
     # (zsh, fzf, starship, lazygit, yazi, tmux, git come from their own
@@ -53,7 +53,6 @@
             # (declares gh-dash + gh-notify TUI extensions there too).
             fastfetch
             hyfetch
-            docker-client # docker CLI — talks to Colima (macOS) or native dockerd (Linux)
             cmake
             gnumake
             macchina
@@ -107,9 +106,11 @@
             azure-cli # `az` — Azure CLI (Python-based, cross-platform)
         ])
         ++ lib.optionals pkgs.stdenv.isDarwin [
-            # Colima — Docker runtime for macOS (Lima VM). Linux uses native
-            # dockerd instead, so colima is Darwin-only. See home/alien.nix.
+            # Container runtime: macOS can't run a native Linux dockerd, so use
+            # colima (QEMU/Lima VM) + the docker CLI. On Linux we use the
+            # distro's system dockerd instead (see the isLinux block + AGENTS.md).
             pkgs.colima
+            pkgs.docker-client # docker CLI — talks to colima's VM daemon
             # `ip` shim wrapping ifconfig/netstat/route. Partial coverage of the
             # real iproute2 (handles `ip addr`/`route`/`link`; no `ss`).
             pkgs.iproute2mac
@@ -139,5 +140,14 @@
             # keyword out and prints "Unsupported option gssapiauthentication"
             # on every ssh/scp/git-over-ssh call; the gssapi build recognizes it.
             pkgs.openssh_gssapi
+        ]
+        # Container runtime CLI — opt-in per host via `enableDocker` in flake.nix.
+        # On Linux the daemon is the distro's native system dockerd (managed
+        # outside nix via systemd/root — NOT colima); nix only ships the docker
+        # CLI, which talks to it over /var/run/docker.sock. Gate it so only hosts
+        # that actually run dockerd get the client. macOS uses colima instead
+        # (see the isDarwin block). See AGENTS.md + docs/messaging.md.
+        ++ lib.optionals (pkgs.stdenv.isLinux && enableDocker) [
+            pkgs.docker-client
         ];
 }
