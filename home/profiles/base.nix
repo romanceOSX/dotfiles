@@ -15,6 +15,7 @@
     ../direnv.nix
     ../tmux.nix
     ../scripts.nix
+    ../portainer.nix
   ];
 
   # Let Home Manager manage itself and the XDG base dirs (exports XDG_CONFIG_HOME
