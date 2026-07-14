@@ -49,13 +49,26 @@ See `README.md` for full setup and migration details.
 - **Work config is private.** Internal hostnames/usernames/Dev Tunnel ids live
   in the separate private `work-dotfiles` flake input, layered onto the `osx`
   and `work` hosts only. Keep work metadata out of this public repo.
+- **Unreachable private input.** Nix fetches *all* flake inputs eagerly, so a
+  node that can't reach the private `work-dotfiles` repo (e.g. the JD work box /
+  `remote-left`, whose git identity has no access) can't build *any* output —
+  even `.#wsl`, which never imports it. Such nodes run `.#wsl` against the same
+  committed flake by overriding that input with the empty stub at `nix/wd-stub`:
+  `--override-input work-dotfiles path:./nix/wd-stub`. The `hm-switch` wrapper
+  (below) applies this automatically when the input is unreachable, so every
+  node builds identical HEAD — no per-host `flake.nix` fork.
 
 ## Making changes
 
 - Every time we edit `home/*.nix` module or a referenced config file, then run:
   ```sh
-  home-manager switch --flake .#<host>   # host: osx | wsl | debian | pi | work
+  hm-switch <host>            # host: osx | wsl | debian | pi | work
+  # equivalently: home-manager switch --flake .#<host>
   ```
+  Prefer `hm-switch` (`.local/bin/hm-switch`): it's a thin wrapper that auto-
+  overrides the private `work-dotfiles` input with the `nix/wd-stub` empty stub
+  on boxes that can't fetch it (see the private-input note above), and is a
+  plain passthrough everywhere else.
 - Validate Nix changes without applying: `nix flake check`.
 - **Commit `flake.lock`** when it changes — it pins exact package versions.
 - For tmux-related changes reload tmux's config

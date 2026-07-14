@@ -26,5 +26,11 @@
     # NB: on direnv 2.37 an empty DIRENV_LOG_FORMAT does NOT silence (it falls
     # back to the default format); log_filter is the reliable lever.
     config.global.log_filter = "^$";
+
+    # Load a bare ./.env from the current directory even when there is no
+    # .envrc. By default direnv only sources .envrc, so a lone .env is ignored
+    # ("No .envrc or .env found"). With load_dotenv = true, `direnv allow`ing a
+    # directory that has a .env (and no .envrc) exports its vars automatically.
+    config.global.load_dotenv = true;
   };
 }

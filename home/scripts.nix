@@ -93,6 +93,13 @@
       source = ../.local/bin/nix-deploy;
       executable = true;
     };
+    # `home-manager switch` wrapper — auto-overrides the private work-dotfiles
+    # input with an empty stub on boxes that can't fetch it (see the script +
+    # nix/wd-stub). Installed everywhere so the switch flow is identical.
+    ".local/bin/hm-switch" = {
+      source = ../.local/bin/hm-switch;
+      executable = true;
+    };
     ".local/bin/netbench" = {
       source = ../.local/bin/netbench;
       executable = true;

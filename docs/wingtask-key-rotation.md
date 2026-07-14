@@ -64,10 +64,11 @@ git push origin master
 
 home-manager switch --flake .#osx          # this machine
 nix-deploy alien pi                         # tailscale nodes
-# remote-left (its own local.nix identity — don't clobber it):
+# remote-left (its own local.nix identity — don't clobber it; hm-switch
+# auto-swaps the unreachable work-dotfiles input for nix/wd-stub):
 ssh axxis-remote-left 'cd ~/git/dots && cp local.nix /tmp/keep && \
   git fetch origin && rm -f local.nix && git reset --hard origin/master && \
-  cp /tmp/keep local.nix && home-manager switch --flake .#wsl -b backup'
+  cp /tmp/keep local.nix && hm-switch wsl -b backup'
 ```
 
 Seed the fresh bucket **from one machine** (the one with authoritative tasks):

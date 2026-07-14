@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# hm-switch — `home-manager switch` wrapper so every node builds the SAME shared
+# flake, including the work box that can't fetch the private work-dotfiles input.
+#
+# Why this exists:
+#   The private `work-dotfiles` flake input (git+ssh to a personal GitHub repo)
+#   is only consumed by the osx/work hosts, but Nix fetches ALL flake inputs
+#   eagerly — so a node that can't reach it (e.g. the JD work box, whose git
+#   identity has no access to the personal repo) can't build ANY output,
+#   including `.#wsl`, which never imports it. When the input is unreachable we
+#   transparently swap in the empty stub at nix/wd-stub via --override-input, so
+#   the switch proceeds against the identical committed flake. Reachable hosts
+#   get a plain passthrough with the real, pinned input.
+#
+# Usage:
+#   hm-switch <host> [extra home-manager/nix args...]
+#   hm-switch wsl -b backup
+#
+# The flake dir is the git top-level of $PWD, falling back to ~/git/dots.
+
+set -euo pipefail
+
+host="${1:?usage: hm-switch <host> [extra args...]}"
+shift || true
+
+flake_dir="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || echo "$HOME/git/dots")"
+
+# Is the private work-dotfiles input reachable from this box? Extract its URL
+# from flake.nix (so the probe follows the source of truth) and try a quiet,
+# non-interactive ls-remote. Missing input line or failed probe → use the stub.
+private_reachable() {
+  local url
+  url="$(sed -n 's/.*work-dotfiles\.url = "\(.*\)";.*/\1/p' "$flake_dir/flake.nix" | head -1)"
+  [ -n "$url" ] || return 1
+  url="${url#git+}" # git+ssh://… → ssh://… for git ls-remote
+  GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=8" \
+    git ls-remote "$url" HEAD >/dev/null 2>&1
+}
+
+args=(switch --flake "$flake_dir#$host")
+if private_reachable; then
+  echo "hm-switch: work-dotfiles reachable — using the real pinned input." >&2
+else
+  echo "hm-switch: work-dotfiles unreachable — overriding with empty stub (nix/wd-stub)." >&2
+  args+=(--override-input work-dotfiles "path:$flake_dir/nix/wd-stub")
+fi
+
+exec home-manager "${args[@]}" "$@"
