@@ -146,24 +146,21 @@ tsvc new <svc> --image IMG --port N [--data VOL[:PATH]] [--mount H:C] [--ephemer
   path-routing on one node). `serve.json` uses the image's `${TS_CERT_DOMAIN}`
   token so the FQDN isn't hardcoded.
 - **Service defs** live in `home/tsvc/services/<svc>.env` (nix-installed to
-  `~/.config/tsvc/services/`): `SVC_PORT` required, `SVC_IMAGE` required unless
-  sidecar-only (see `SVC_PROXY_HOST`); optional `SVC_DATA_VOLUME`/`SVC_DATA_PATH`,
-  `SVC_MOUNTS` (e.g. the docker socket for portainer), `SVC_CMD` (args appended to
-  the entrypoint), `SVC_PROXY_HOST`, `SVC_PULL`, `EPHEMERAL`. Checked-in:
-  `portainer` (docker UI), `paisa` (finance UI — binds `$HOME/finance` to
-  paisa's `~/Documents/paisa`), `meddy` (**standing route, on-demand backend** —
-  see `SVC_PROXY_HOST` below). Add a permanent service = new `.env` in the repo +
-  `hm-switch`; `tsvc new` scaffolds ad-hoc ones.
-- **`SVC_PROXY_HOST` (sidecar-only mode).** Normally a service is a 2-container
-  stack (sidecar + app). If a def sets `SVC_PROXY_HOST` instead of `SVC_IMAGE`,
-  tsvc renders **only** the sidecar and points `tailscale serve` at
-  `SVC_PROXY_HOST:SVC_PORT` (reached over `host-gateway`) rather than an app
-  container. Use it to keep a MagicDNS route + cert **permanently live** while the
-  real backend is a process/build running on the host — the URL 502s until that
-  build listens, then works, with no per-run `tsvc up`. This is how `meddy` is
-  wired: `tsvc up meddy` once (persists via `restart: unless-stopped`), then the
-  meddy dev build in its git dir on alien serves it. The build must bind
-  `0.0.0.0:SVC_PORT` (not `127.0.0.1`-only) so the userspace sidecar can reach it.
+  `~/.config/tsvc/services/`): `SVC_IMAGE` + `SVC_PORT` required; optional
+  `SVC_DATA_VOLUME`/`SVC_DATA_PATH`, `SVC_MOUNTS` (e.g. the docker socket for
+  portainer), `SVC_CMD` (args appended to the entrypoint), `SVC_PULL`,
+  `EPHEMERAL`. Checked-in: `portainer` (docker UI), `paisa` (finance UI — binds
+  `$HOME/finance` into paisa's `~/Documents/paisa`). Add a permanent service =
+  new `.env` in the repo + `hm-switch`; `tsvc new` scaffolds ad-hoc ones.
+- **Not everything fits tsvc.** The model is one node → one port → one
+  Tailscale cert. A multi-origin app that terminates its own TLS and routes
+  sub-domains (e.g. the `meddy` dev stack: its own nginx serving
+  `www./app./api.${ROOT_DOMAIN}` under a mkcert wildcard) does **not** fit —
+  Tailscale won't cert per-node subdomains. Expose those via their own mechanism
+  (meddy: run its compose with `ROOT_DOMAIN` set to alien's tailnet name).
+  Note also that alien's ufw is `INPUT policy DROP`, so a container cannot reach
+  a build on the host via `host-gateway` — a sidecar can only front another
+  container (shared netns), not an arbitrary host process.
 - **Auth: a Tailscale OAuth client secret** (scope `auth_keys`, tag `tag:svc`),
   stored in sops as `tailscale_svc_oauth` (see `home/secrets.nix`, gated to
   servers). tsvc reads the sops-rendered path from `~/.config/tsvc/config.env`
