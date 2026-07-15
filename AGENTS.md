@@ -148,7 +148,8 @@ tsvc new <svc> --image IMG --port N [--data VOL[:PATH]] [--mount H:C] [--ephemer
 - **Service defs** live in `home/tsvc/services/<svc>.env` (nix-installed to
   `~/.config/tsvc/services/`): `SVC_IMAGE` + `SVC_PORT` required; optional
   `SVC_DATA_VOLUME`/`SVC_DATA_PATH`, `SVC_MOUNTS` (e.g. the docker socket for
-  portainer), `SVC_PULL`, `EPHEMERAL`. Checked-in: `portainer`, `paisa`, `meddy`
+  portainer), `SVC_CMD` (args appended to the entrypoint), `SVC_PULL`,
+  `EPHEMERAL`. Checked-in: `portainer`, `paisa`, `meddy`
   (ephemeral dev-run node — appears while up, auto-deregisters on `down`). Add a
   permanent service = new `.env` in the repo + `hm-switch`; `tsvc new` scaffolds
   ad-hoc ones.

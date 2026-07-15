@@ -25,6 +25,7 @@
 # in the same dir. A def sets SVC_IMAGE + SVC_PORT and optionally:
 #   SVC_DATA_VOLUME / SVC_DATA_PATH   named volume for the app's data
 #   SVC_MOUNTS                        extra binds, space-separated host:container
+#   SVC_CMD                           args appended to the image entrypoint
 #   SVC_PULL                          compose pull policy (missing|always|never)
 #   EPHEMERAL                         true → node auto-deregisters on `down`
 #   TS_IMAGE_TAG                      tailscale sidecar image tag (default latest)
@@ -65,7 +66,7 @@ load_def() {
   f="$SVC_DIR/$svc.env"
   [ -r "$f" ] || die "no service def for '$svc' ($f). Add one, or: tsvc new $svc --image … --port …"
   SVC_IMAGE="" SVC_PORT="" SVC_DATA_VOLUME="" SVC_DATA_PATH="/data" \
-    SVC_MOUNTS="" SVC_PULL="missing" EPHEMERAL="false" TS_IMAGE_TAG="latest"
+    SVC_MOUNTS="" SVC_CMD="" SVC_PULL="missing" EPHEMERAL="false" TS_IMAGE_TAG="latest"
   # shellcheck disable=SC1090
   . "$f"
   [ -n "$SVC_IMAGE" ] || die "$f: SVC_IMAGE is unset."
@@ -123,6 +124,13 @@ JSON
     echo "    image: $SVC_IMAGE"
     echo "    network_mode: \"service:tailscale\""
     echo "    restart: unless-stopped"
+    if [ -n "$SVC_CMD" ]; then
+      # args appended to the image entrypoint, emitted as a YAML/JSON list so
+      # each token stays a distinct arg regardless of spacing.
+      local cmd_json="" w
+      for w in $SVC_CMD; do cmd_json+="${cmd_json:+, }\"$w\""; done
+      echo "    command: [$cmd_json]"
+    fi
     if [ -n "$SVC_DATA_VOLUME" ] || [ -n "$SVC_MOUNTS" ]; then
       echo "    volumes:"
       [ -n "$SVC_DATA_VOLUME" ] && echo "      - $SVC_DATA_VOLUME:$SVC_DATA_PATH"
