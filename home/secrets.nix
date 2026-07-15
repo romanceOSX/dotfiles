@@ -1,40 +1,57 @@
-# sops-nix secrets — decrypt the WingTask sync credentials at activation.
+# sops-nix secrets — decrypt host credentials at activation.
 #
-# The encrypted values live in ../secrets.yaml (committed, encrypted to my SSH
-# ed25519 key via .sops.yaml). This replaces the old scheme where the
-# client_id + encryption_secret were hand-copied into every host's gitignored
-# local.nix and had to be kept byte-identical by hand: now each host in the
-# mesh decrypts the *same* ciphertext with its own SSH key, so they're
-# automatically consistent.
+# The encrypted values live in ../secrets.yaml (committed, encrypted to each
+# host's SSH ed25519 key via .sops.yaml). Each host in the mesh decrypts the
+# *same* ciphertext with its own key, so they're automatically consistent (this
+# replaced the old scheme of hand-copying values into every host's local.nix).
 #
-# Only the (non-secret) WingTask server URL still comes from local.nix — it
-# doubles as the build-time "is sync configured on this host?" gate, since the
-# encrypted payload is opaque at eval time. A host with no wingtaskServerUrl
-# declares no sops secrets, and `config = mkIf (secrets != {})` upstream makes
-# the whole sops module a no-op there.
-{ config, lib, wingtaskServerUrl ? null, ... }:
+# Two independent consumers gate this module — the sops base config (age key +
+# default file) turns on if *either* wants a secret:
+#   - WingTask (Taskwarrior sync): opt-in via `wingtaskServerUrl` in local.nix.
+#     The non-secret URL doubles as the "is sync configured here?" build gate.
+#   - tsvc (Tailscale per-service sidecars, home/tsvc.nix): Linux servers only.
+#     Needs the Tailscale OAuth client secret to mint ephemeral auth keys.
+{ config, lib, pkgs, wingtaskServerUrl ? null, role ? "client", ... }:
 let
   wingtaskConfigured = wingtaskServerUrl != null;
+  # Only Linux `server` hosts run the docker services fronted by tsvc; those are
+  # the only boxes that need the Tailscale OAuth secret. Keep this gate byte-for-
+  # byte in sync with home/tsvc.nix's `enable`.
+  tsvcEnabled = pkgs.stdenv.isLinux && role == "server";
+  anySecret = wingtaskConfigured || tsvcEnabled;
 in
-lib.mkIf wingtaskConfigured {
+lib.mkIf anySecret {
   sops = {
     defaultSopsFile = ../secrets.yaml;
 
-    # Derive the age identity from this host's SSH ed25519 private key (the
-    # same key already used for git/ssh). No separate age key to distribute.
+    # Derive the age identity from this host's SSH ed25519 private key (the same
+    # key already used for git/ssh). No separate age key to distribute.
     age.sshKeyPaths = [ "${config.home.homeDirectory}/.ssh/id_ed25519" ];
 
-    secrets.wingtask_client_id = { };
-    secrets.wingtask_encryption_secret = { };
+    secrets = lib.mkMerge [
+      (lib.mkIf wingtaskConfigured {
+        wingtask_client_id = { };
+        wingtask_encryption_secret = { };
+      })
+      (lib.mkIf tsvcEnabled {
+        # Tailscale OAuth client secret — scope `auth_keys`, tag `tag:svc`.
+        # tsvc reads the rendered file (0400) to bring up service sidecars; the
+        # OAuth secret mints ephemeral, non-expiring keys, so new services need
+        # no key rotation. See home/tsvc.nix.
+        tailscale_svc_oauth = { };
+      })
+    ];
 
     # Rendered (0400) at activation to
     #   ~/.config/sops-nix/secrets/rendered/taskrc-sync
     # and pulled into taskrc via `include` (see home/taskwarrior.nix), so the
     # decrypted secret never lands in the world-readable generated taskrc.
-    templates."taskrc-sync".content = ''
-      sync.server.url=${wingtaskServerUrl}
-      sync.server.client_id=${config.sops.placeholder.wingtask_client_id}
-      sync.encryption_secret=${config.sops.placeholder.wingtask_encryption_secret}
-    '';
+    templates = lib.mkIf wingtaskConfigured {
+      "taskrc-sync".content = ''
+        sync.server.url=${wingtaskServerUrl}
+        sync.server.client_id=${config.sops.placeholder.wingtask_client_id}
+        sync.encryption_secret=${config.sops.placeholder.wingtask_encryption_secret}
+      '';
+    };
   };
 }

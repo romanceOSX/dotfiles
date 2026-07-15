@@ -13,6 +13,7 @@
   imports = [
     ./base.nix
     ../secrets.nix
+    ../tsvc.nix
     ../taskwarrior.nix
     ../herdr.nix
     ../alien.nix

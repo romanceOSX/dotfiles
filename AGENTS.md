@@ -124,6 +124,45 @@ and lists them so they can be integrated first. Add new nodes by extending the
   `colima` context with `docker context use default && docker context rm colima`.
   (Note `pi` is now `role = "minimal"` — no dev tier at all, not just no docker.)
 
+## Services — Tailscale subdomain routing (`server` hosts)
+
+Server hosts expose docker services on the tailnet under their own MagicDNS
+names via **`tsvc`** (`.local/bin/tsvc`, installed by `home/tsvc.nix`, gated
+`role == "server" && isLinux`):
+
+```sh
+tsvc up portainer            # → https://portainer.<tailnet>.ts.net
+tsvc list | status | logs | down
+tsvc new <svc> --image IMG --port N [--data VOL[:PATH]] [--mount H:C] [--ephemeral]
+```
+
+- **Model: one tailnet device per service (sidecar).** Each service is a 2-
+  container compose stack on the host's dockerd — a `tailscale/tailscale`
+  userspace sidecar (`hostname: <svc>`, `tag:svc`) running `tailscale serve` to
+  front the app on HTTPS `443`, plus the app container sharing the sidecar's
+  netns (`network_mode: service:tailscale`). Tailscale issues a valid
+  `<svc>.<tailnet>.ts.net` cert — **no wildcard/external domain** (Tailscale only
+  certs a node's own name, which is exactly why it's a device *per* service, not
+  path-routing on one node). `serve.json` uses the image's `${TS_CERT_DOMAIN}`
+  token so the FQDN isn't hardcoded.
+- **Service defs** live in `home/tsvc/services/<svc>.env` (nix-installed to
+  `~/.config/tsvc/services/`): `SVC_IMAGE` + `SVC_PORT` required; optional
+  `SVC_DATA_VOLUME`/`SVC_DATA_PATH`, `SVC_MOUNTS` (e.g. the docker socket for
+  portainer), `SVC_PULL`, `EPHEMERAL`. Checked-in: `portainer`, `paisa`, `meddy`
+  (ephemeral dev-run node — appears while up, auto-deregisters on `down`). Add a
+  permanent service = new `.env` in the repo + `hm-switch`; `tsvc new` scaffolds
+  ad-hoc ones.
+- **Auth: a Tailscale OAuth client secret** (scope `auth_keys`, tag `tag:svc`),
+  stored in sops as `tailscale_svc_oauth` (see `home/secrets.nix`, gated to
+  servers). tsvc reads the sops-rendered path from `~/.config/tsvc/config.env`
+  and mints **ephemeral, non-expiring** keys — new services need no key rotation.
+- **Tailnet prerequisites** (admin console, one-time): enable **HTTPS
+  Certificates** (DNS page), and add `tag:svc` + `tagOwners` and a grant letting
+  members reach `tag:svc` in the ACL policy, then create the OAuth client.
+- The standalone `portainer` launcher (`home/portainer.nix`) still exists for a
+  localhost-only container; don't run it and `tsvc up portainer` at once — they
+  share the `portainer_data` volume.
+
 ## Gotchas
 
 - Home Manager never overwrites files it didn't create; pre-existing files cause
