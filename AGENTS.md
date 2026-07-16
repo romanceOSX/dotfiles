@@ -218,13 +218,30 @@ system-proxy status | logs | stop | update
   above ever attaches to another project's docker network.
 - **meddy specifically** stays a two-tier setup: system-proxy is tier1,
   meddy's *own* nginx (still doing its full `web./app./api.${ROOT_DOMAIN}`
-  split, untouched) is tier2, rebound from the host's real `443` to
-  `127.0.0.1:8443` via meddy's own gitignored `docker-compose.override.yml`
-  (see `deploy/tailscale-proxy/README.md` in that repo for the tier1/tier2
-  background). That override must use compose's `!override` YAML tag on
-  `ports:`, not a plain list — Compose *merges* array fields across files by
-  default, so a plain list would leave the base file's `"80:80"`/`"443:443"`
-  published too and never actually free the port for system-proxy.
+  split, untouched — and now plain HTTP only, it never terminates TLS itself,
+  same reasoning as everything above: one edge terminator, everything behind
+  it plain, matching how a real SaaS runs) is tier2, rebound from the host's
+  real `80` to `127.0.0.1:8080` via meddy's own gitignored
+  `docker-compose.override.yml` (see `deploy/tailscale-proxy/README.md` and
+  `docs/dev-single-origin.md` in that repo for the tier1/tier2 background).
+  That override must use compose's `!override` YAML tag on `ports:`, not a
+  plain list — Compose *merges* array fields across files by default, so a
+  plain list would leave the base file's `"80:80"` published too and never
+  actually free the port for system-proxy.
+- **The `docker-compose.override.yml` pattern itself** (meddy, and worth
+  reusing for any other project host here): the *committed* compose file
+  ships with no restart policy and no host-topology opinions at all — a
+  laptop dev running the same repo doesn't want its Postgres/nginx
+  auto-launching on every boot, and doesn't have a system-proxy in front to
+  rebind ports for. Persistence and port rebinding are host decisions, not
+  project ones, so they live in a local, gitignored
+  `docker-compose.override.yml` instead — `restart: unless-stopped` on every
+  service, plus whatever port surgery this specific host needs. Same
+  boot-survival mechanism as everything else on this page: Compose just sets
+  the restart policy on the container; actually coming back after a reboot is
+  `docker.service` being enabled (`systemctl is-enabled docker`) restarting
+  dockerd, which then restarts anything with that policy — no separate
+  systemd unit or nix module needed per project.
 
 ## Gotchas
 
