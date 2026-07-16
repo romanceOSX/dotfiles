@@ -27,6 +27,10 @@
 #   SVC_MOUNTS                        extra binds, space-separated host:container
 #   SVC_CMD                           args appended to the image entrypoint
 #   SVC_PULL                          compose pull policy (missing|always|never)
+#   SVC_PUBLISH_HOST                  publish SVC_PORT to this host address too
+#                                     (e.g. 127.0.0.1) — for a local reverse
+#                                     proxy to reach the app directly, alongside
+#                                     its normal tailnet-only URL
 #   EPHEMERAL                         true → node auto-deregisters on `down`
 #   TS_IMAGE_TAG                      tailscale sidecar image tag (default latest)
 set -euo pipefail
@@ -66,7 +70,8 @@ load_def() {
   f="$SVC_DIR/$svc.env"
   [ -r "$f" ] || die "no service def for '$svc' ($f). Add one, or: tsvc new $svc --image … --port …"
   SVC_IMAGE="" SVC_PORT="" SVC_DATA_VOLUME="" SVC_DATA_PATH="/data" \
-    SVC_MOUNTS="" SVC_CMD="" SVC_PULL="missing" EPHEMERAL="false" TS_IMAGE_TAG="latest"
+    SVC_MOUNTS="" SVC_CMD="" SVC_PULL="missing" SVC_PUBLISH_HOST="" \
+    EPHEMERAL="false" TS_IMAGE_TAG="latest"
   # shellcheck disable=SC1090
   . "$f"
   [ -n "$SVC_IMAGE" ] || die "$f: SVC_IMAGE is unset."
@@ -120,6 +125,13 @@ JSON
     [ "$EPHEMERAL" = "true" ] || echo "      - tsvc-$SVC-state:/var/lib/tailscale"
     echo "      - $rundir/serve.json:/config/serve.json:ro"
     echo "    restart: unless-stopped"
+    if [ -n "$SVC_PUBLISH_HOST" ]; then
+      # app shares this container's netns (network_mode: service:tailscale), so
+      # the port publish has to live here — Docker rejects `ports:` on a
+      # container using another's network namespace.
+      echo "    ports:"
+      echo "      - \"$SVC_PUBLISH_HOST:$SVC_PORT:$SVC_PORT\""
+    fi
     echo "  app:"
     echo "    image: $SVC_IMAGE"
     echo "    network_mode: \"service:tailscale\""

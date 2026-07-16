@@ -172,6 +172,60 @@ tsvc new <svc> --image IMG --port N [--data VOL[:PATH]] [--mount H:C] [--ephemer
   localhost-only container; don't run it and `tsvc up portainer` at once — they
   share the `portainer_data` volume.
 
+## System-wide reverse proxy (tier1) — `server` hosts
+
+**`system-proxy`** (`.local/bin/system-proxy`, installed by
+`home/system-proxy.nix`, same gate as tsvc) is the *only* thing bound to a
+server host's real `0.0.0.0:80/443`. It's a single dockerized nginx that
+TLS-terminates with one mkcert wildcard cert for a fixed `ROOT_DOMAIN`
+(currently `meddy.test`, hardcoded in the .nix file — this host only runs one
+multi-origin project today) and fans out by Host header to each project's own
+loopback-published port, e.g. `portainer.meddy.test` → tsvc's
+loopback-published `:9000`. It never joins another project's docker network —
+runs with `--network host` so its own `127.0.0.1` *is* the real host
+loopback (backends publish to `127.0.0.1` only, which refuses connections via
+the docker0 bridge gateway/`host.docker.internal` — genuine loopback is the
+only path in). Projects stay fully independent compose stacks; system-proxy
+only knows their loopback port.
+
+```sh
+system-proxy certs             # one-time: mkcert wildcard cert for ROOT_DOMAIN
+system-proxy start             # → https://<ROOT_DOMAIN> (and *.<ROOT_DOMAIN>)
+system-proxy reload            # picked up a config change (hm-switch first)
+system-proxy status | logs | stop | update
+```
+
+- **Getting a service in front of it** needs two moves: (1) publish the
+  service's port to `127.0.0.1` (tsvc: set `SVC_PUBLISH_HOST=127.0.0.1` in its
+  `.env` — note it has to go on the `tailscale` sidecar service, not `app`,
+  since Docker refuses to publish a port on a container using
+  `network_mode: service:X`; non-tsvc projects do this in their own compose
+  file), and (2) add a `server{}` block in `home/system-proxy.nix`'s
+  `defaultConf` proxying to `127.0.0.1:<port>` — **not**
+  `host.docker.internal`, see below — then `hm-switch` + `system-proxy reload`.
+- **`ufw`'s default is `INPUT policy DROP`, and it matters differently for
+  different hops.** A *bridge-networked* container reaching a host-bound port
+  via `host.docker.internal`/`host-gateway` (e.g. meddy's own nginx → the API
+  on `:3000`) needs an explicit `ufw allow ... to any port <N>` carve-out —
+  that's the pre-existing `3000/tcp` rule. system-proxy sidesteps this
+  entirely by running with `--network host`: its own `127.0.0.1` is the real
+  host loopback, which already bypasses ufw's INPUT chain unconditionally, no
+  rule needed. (This is also *why* it runs that way — ports published to
+  `127.0.0.1` refuse connections arriving via the docker0 bridge gateway, so
+  `host.docker.internal` wouldn't reach them at all, ufw rule or not.) Separately,
+  cross-*project* container-to-container traffic doesn't work here regardless
+  of ufw — Docker's own per-network isolation drops it — which is why nothing
+  above ever attaches to another project's docker network.
+- **meddy specifically** stays a two-tier setup: system-proxy is tier1,
+  meddy's *own* nginx (still doing its full `web./app./api.${ROOT_DOMAIN}`
+  split, untouched) is tier2, rebound from the host's real `443` to
+  `127.0.0.1:8443` via meddy's own gitignored `docker-compose.override.yml`
+  (see `deploy/tailscale-proxy/README.md` in that repo for the tier1/tier2
+  background). That override must use compose's `!override` YAML tag on
+  `ports:`, not a plain list — Compose *merges* array fields across files by
+  default, so a plain list would leave the base file's `"80:80"`/`"443:443"`
+  published too and never actually free the port for system-proxy.
+
 ## Gotchas
 
 - Home Manager never overwrites files it didn't create; pre-existing files cause
