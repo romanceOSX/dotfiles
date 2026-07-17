@@ -177,11 +177,23 @@ tsvc new <svc> --image IMG --port N [--data VOL[:PATH]] [--mount H:C] [--ephemer
 **`system-proxy`** (`.local/bin/system-proxy`, installed by
 `home/system-proxy.nix`, same gate as tsvc) is the *only* thing bound to a
 server host's real `0.0.0.0:80/443`. It's a single dockerized nginx that
-TLS-terminates with one mkcert wildcard cert for a fixed `ROOT_DOMAIN`
-(currently `meddy.test`, hardcoded in the .nix file — this host only runs one
-multi-origin project today) and fans out by Host header to each project's own
-loopback-published port, e.g. `portainer.meddy.test` → tsvc's
-loopback-published `:9000`. It never joins another project's docker network —
+TLS-terminates with one mkcert cert covering two fixed namespaces (both
+hardcoded in the .nix file) and fans out by Host header to each backend's own
+loopback-published port:
+
+| Namespace | For | Routes to |
+|---|---|---|
+| `ROOT_DOMAIN` (`dev.meddy.com`) | the project/SaaS stack — this host runs one multi-origin project today | meddy's own tier2 nginx on loopback `:8080`, which owns the `web./app./api./swagger.` split |
+| `INTERNAL_DOMAIN` (`alien.internal`) | this host's own infra tools | `portainer.alien.internal` → tsvc's loopback `:9000`, `paisa.alien.internal` → tsvc's loopback `:7500` |
+
+`.internal` is ICANN-reserved for private use, so infra names can never collide
+with a real public name. `dev.meddy.com` deliberately gives up that guarantee
+to match the FQDN the app is served under in prod (cookie scope, CORS, redirect
+URIs behave identically) — it's split-horizon DNS, so a host running this
+config cannot reach a genuinely-deployed `dev.meddy.com`. Re-run
+`system-proxy certs` after any domain change: SANs are fixed at issue time.
+
+It never joins another project's docker network —
 runs with `--network host` so its own `127.0.0.1` *is* the real host
 loopback (backends publish to `127.0.0.1` only, which refuses connections via
 the docker0 bridge gateway/`host.docker.internal` — genuine loopback is the
@@ -189,7 +201,8 @@ only path in). Projects stay fully independent compose stacks; system-proxy
 only knows their loopback port.
 
 ```sh
-system-proxy certs             # one-time: mkcert wildcard cert for ROOT_DOMAIN
+system-proxy certs             # one-time (and after any domain change): mkcert
+                               # cert covering ROOT_DOMAIN + INTERNAL_DOMAIN
 system-proxy start             # → https://<ROOT_DOMAIN> (and *.<ROOT_DOMAIN>)
 system-proxy reload            # picked up a config change (hm-switch first)
 system-proxy status | logs | stop | update

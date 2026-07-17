@@ -2,8 +2,9 @@
 # system-proxy — the box's single system-wide nginx reverse proxy (tier1).
 #
 # The only thing bound to this host's real 0.0.0.0:80/443. Terminates TLS with
-# one mkcert wildcard cert for ROOT_DOMAIN and fans out by Host header to each
-# project's own loopback-published port. Each project keeps owning its own
+# one mkcert cert covering both namespaces (ROOT_DOMAIN, the project/SaaS names;
+# INTERNAL_DOMAIN, this host's own infra tools) and fans out by Host header to
+# each backend's own loopback-published port. Each project keeps owning its own
 # internal routing/TLS — this proxy never shares a docker network with any of
 # them, they stay fully independent compose projects.
 #
@@ -15,10 +16,12 @@
 # meddy's own bridge-networked nginx reaching the host API on :3000) —
 # loopback traffic already bypasses ufw's INPUT chain entirely.
 #
-# Config (conf.d/default.conf) and ROOT_DOMAIN are nix-rendered by
+# Config (conf.d/default.conf) and the domain vars are nix-rendered by
 # home/system-proxy.nix into ~/.config/system-proxy/. The TLS cert is NOT
 # nix-managed (mkcert writes host-local state under ~/.local/state) — run
-# `system-proxy certs` once, then `system-proxy start`.
+# `system-proxy certs` once, then `system-proxy start`. Re-run `certs` after
+# any domain change in the .nix source: the cert's SANs are baked in at issue
+# time, so a newly-added domain serves the old cert until you do.
 #
 # --restart=unless-stopped means it comes back after a reboot on its own, same
 # as the tsvc/portainer containers, as long as dockerd itself is enabled
@@ -49,14 +52,18 @@ need_docker() {
   }
 }
 
-load_root_domain() {
+load_domains() {
   ROOT_DOMAIN=""
+  INTERNAL_DOMAIN=""
   # shellcheck disable=SC1090
   [ -r "$config_env" ] && . "$config_env"
   [ -n "$ROOT_DOMAIN" ] || {
     echo "system-proxy: ROOT_DOMAIN unset — is $config_env present? (run hm-switch)" >&2
     exit 1
   }
+  # INTERNAL_DOMAIN is optional on purpose: a host whose rendered config.env
+  # predates the infra namespace still gets a valid single-namespace cert
+  # instead of failing outright.
 }
 
 exists() { docker ps -a --format '{{.Names}}' | grep -qx "$name"; }
@@ -64,12 +71,19 @@ exists() { docker ps -a --format '{{.Names}}' | grep -qx "$name"; }
 cmd_certs() {
   command -v mkcert >/dev/null 2>&1 || {
     echo "system-proxy: mkcert not found on PATH." >&2; exit 1; }
-  load_root_domain
+  load_domains
   mkdir -p "$cert_dir"
   mkcert -install
+  # One cert, both namespaces. Every SAN is a separate mkcert argument, and a
+  # wildcard does not cover its own apex (*.example.com does not match
+  # example.com), so each namespace contributes two names.
+  local names=("*.$ROOT_DOMAIN" "$ROOT_DOMAIN")
+  if [ -n "$INTERNAL_DOMAIN" ]; then
+    names+=("*.$INTERNAL_DOMAIN" "$INTERNAL_DOMAIN")
+  fi
   mkcert -cert-file "$cert_dir/proxy.pem" -key-file "$cert_dir/proxy-key.pem" \
-    "*.$ROOT_DOMAIN" "$ROOT_DOMAIN"
-  echo "system-proxy: cert for *.$ROOT_DOMAIN written to $cert_dir"
+    "${names[@]}"
+  echo "system-proxy: cert for ${names[*]} written to $cert_dir"
 }
 
 cmd="${1:-status}"
@@ -77,7 +91,7 @@ case "$cmd" in
   certs) cmd_certs ;;
   start)
     need_docker
-    load_root_domain
+    load_domains
     [ -f "$cert_dir/proxy.pem" ] || {
       echo "system-proxy: no cert — run 'system-proxy certs' first." >&2; exit 1; }
     [ -d "$conf_dir/conf.d" ] || {
@@ -100,6 +114,9 @@ case "$cmd" in
         "$image" >/dev/null
     fi
     echo "system-proxy: up → https://$ROOT_DOMAIN (and *.${ROOT_DOMAIN})"
+    if [ -n "$INTERNAL_DOMAIN" ]; then
+      echo "system-proxy:      https://*.${INTERNAL_DOMAIN} (host infra)"
+    fi
     ;;
   stop)
     need_docker
