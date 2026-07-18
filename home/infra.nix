@@ -35,10 +35,34 @@ let
           - "127.0.0.1:8081:8080"
         volumes:
           - /var/run/docker.sock:/var/run/docker.sock
+
+      netdata:
+        image: netdata/netdata:latest
+        restart: unless-stopped
+        ports:
+          - "127.0.0.1:19999:19999"
+        cap_add:
+          - SYS_PTRACE
+          - SYS_ADMIN
+        security_opt:
+          - apparmor:unconfined
+        volumes:
+          - netdataconfig:/etc/netdata
+          - netdatalib:/var/lib/netdata
+          - netdatacache:/var/cache/netdata
+          - /etc/passwd:/host/etc/passwd:ro
+          - /etc/group:/host/etc/group:ro
+          - /etc/os-release:/host/etc/os-release:ro
+          - /proc:/host/proc:ro
+          - /sys:/host/sys:ro
+          - /var/run/docker.sock:/var/run/docker.sock:ro
     
     volumes:
       portainer_data:
         external: true
+      netdataconfig:
+      netdatalib:
+      netdatacache:
   '';
 in
 {
