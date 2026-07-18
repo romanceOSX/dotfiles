@@ -57,12 +57,23 @@ let
           - /sys:/host/sys:ro
           - /var/run/docker.sock:/var/run/docker.sock:ro
     
+      npm:
+        image: jc21/nginx-proxy-manager:latest
+        restart: unless-stopped
+        ports:
+          - "127.0.0.1:8181:81"
+        volumes:
+          - npm_data:/data
+          - npm_letsencrypt:/etc/letsencrypt
+    
     volumes:
       portainer_data:
         external: true
       netdataconfig:
       netdatalib:
       netdatacache:
+      npm_data:
+      npm_letsencrypt:
   '';
 in
 {
