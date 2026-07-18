@@ -13,7 +13,6 @@
   imports = [
     ./base.nix
     ../secrets.nix
-    ../system-proxy.nix
     ../taskwarrior.nix
     ../herdr.nix
     ../alien.nix
