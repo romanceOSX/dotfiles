@@ -138,6 +138,17 @@ let
 
     # --- ${rootDomain}: meddy's dev stack -------------------------------------
 
+    # Catch-all for unknown HTTPS domains (drops connection). Prevents
+    # browser auto-upgrades to HTTPS from falling through to the meddy block.
+    server {
+        listen 443 ssl default_server;
+        listen [::]:443 ssl default_server;
+        server_name _;
+        ssl_certificate     /etc/nginx/certs/proxy.pem;
+        ssl_certificate_key /etc/nginx/certs/proxy-key.pem;
+        return 444;
+    }
+
     # Everything under ${rootDomain} -> meddy's own nginx (tier2), moved to
     # loopback:8080 by its local docker-compose.override.yml. meddy's nginx is
     # plain HTTP only — it never terminates TLS itself (same reasoning as this
