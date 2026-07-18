@@ -14,11 +14,7 @@
 { config, lib, pkgs, wingtaskServerUrl ? null, role ? "client", ... }:
 let
   wingtaskConfigured = wingtaskServerUrl != null;
-  # Only Linux `server` hosts run the docker services fronted by tsvc; those are
-  # the only boxes that need the Tailscale OAuth secret. Keep this gate byte-for-
-  # byte in sync with home/tsvc.nix's `enable`.
-  tsvcEnabled = pkgs.stdenv.isLinux && role == "server";
-  anySecret = wingtaskConfigured || tsvcEnabled;
+  anySecret = wingtaskConfigured;
 in
 lib.mkIf anySecret {
   sops = {
@@ -32,13 +28,6 @@ lib.mkIf anySecret {
       (lib.mkIf wingtaskConfigured {
         wingtask_client_id = { };
         wingtask_encryption_secret = { };
-      })
-      (lib.mkIf tsvcEnabled {
-        # Tailscale OAuth client secret — scope `auth_keys`, tag `tag:svc`.
-        # tsvc reads the rendered file (0400) to bring up service sidecars; the
-        # OAuth secret mints ephemeral, non-expiring keys, so new services need
-        # no key rotation. See home/tsvc.nix.
-        tailscale_svc_oauth = { };
       })
     ];
 
