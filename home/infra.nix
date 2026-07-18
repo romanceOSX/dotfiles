@@ -24,7 +24,7 @@ let
         image: ananthakumaran/paisa:latest-hledger
         restart: unless-stopped
         ports:
-          - "127.0.0.1:7500:7500"
+          - "127.0.0.1:7501:7500"
         volumes:
           - ''${HOME}/finance:/root/Documents/paisa
       
